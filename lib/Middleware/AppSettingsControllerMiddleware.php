@@ -126,6 +126,7 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 		}
 */
 		// TODO: Make this editable via the UI
+		// Remove unused categories
 		// Add a "Protected" category to the app list for the instance admin
 		if (
 			$methodName == 'listCategories' &&
@@ -133,37 +134,98 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 		) {
 			$data = $response->getData();
 
-			if (sizeof($data) == 0) {
-				$data = [];
-				$categories = file_get_contents(\OC::$SERVERROOT . '/categories.json');
-				foreach ($categories as $category) {
-					$data[] = [
-						'id' => $category['id'],
-						'ident' => $category['id'],
-						'displayName' => isset($category['translations'][$currentLanguage]['name']) ? $category['translations'][$currentLanguage]['name'] : $category['translations']['en']['name'],
-					];
+			$installedCategories = [];
+			$installedApps = OC::$server->getAppManager()->getInstalledApps();
+
+			foreach ($installedApps as $app) {
+				$appInfo = OC::$server->getAppManager()->getAppInfo($app);
+
+				if (
+					isset($appInfo['category']) ||
+					array_key_exists('category', $appInfo)
+				) {
+					$installedCategories = array_merge(
+						$installedCategories,
+						(array) $appInfo['category']
+					);
 				}
 			}
 
-			$category = array(
-				'id'			=> 'protected',
-				'ident'			=> 'protected',
-				'displayName'	=> 'Protected',
-			);
+			$installedCategories = array_unique($installedCategories);
+			$installedCategories = array_flip($installedCategories);
+			
+			foreach ($data as $key=>$category) {
+				if (!(
+					isset($installedCategories[$category['id']]) ||
+					array_key_exists($category['id'], $installedCategories)
+				)) {
+					unset($data[$key]);
+				}
+			}
+			
+			$data = array_values($data);
 
-			array_push($data, $category);
+			$allApps = [[
+				'id'			=> 'all',
+				'ident'			=> 'all',
+				'displayName'	=> 'All Apps',
+			]];
+
+			$data = array_merge($allApps, $data);
+
+			if ($this->isInstanceAdmin) {
+				$protected = [
+					'id'			=> 'protected',
+					'ident'			=> 'protected',
+					'displayName'	=> 'Protected',
+				];
+
+				array_push($data, $protected);
+			}
+
 			$response->setData($data);
 		}
 
-		// TODO: Make this editable via the UI
-		$hiddenApps = [
-			'drop_account',
-		];
-
+		// Only list apps that are installed; force current version (prevent upgrades)
+		// Add all apps to the "All Apps" category
 		// When loading the app manager, sort or hide all apps that are of a protected type (cannot be limited to specific groups)
 		if ($methodName == 'listApps') {
+			// TODO: Make this editable via the UI
+			$hiddenApps = [
+				'drop_account',
+			];
+
 			$data = $response->getData();
+			$installedApps = array_flip(OC::$server->getAppManager()->getInstalledApps());
+
 			foreach ($data['apps'] as $key=>$app) {
+				if (
+					isset($installedApps[$app['id']]) ||
+					array_key_exists($app['id'], $installedApps)
+				) {
+					$data['apps'][$key]['version'] = OC::$server->getAppManager()->getAppVersion($app['id']);
+
+					if (!(
+						isset($data['apps'][$key]['category']) ||
+						array_key_exists('category', $data['apps'][$key])
+					)) {
+						$data['apps'][$key]['category'] = array('all');
+					}
+					else if (is_array($data['apps'][$key]['category'])) {
+						array_push($data['apps'][$key]['category'], 'all');
+					}
+					else {
+						$data['apps'][$key]['category'] = array(
+							$data['apps'][$key]['category'],
+							'all',
+						);
+					}
+				}
+				else {
+					unset($data['apps'][$key]);
+					continue;
+				}
+
 				if (OC::$server->getAppManager()->hasProtectedAppType($data['apps'][$key]['types'])) {
 					// If the user is not the instance admin, hide all protected apps
 					if (! $this->isInstanceAdmin) {
@@ -189,6 +251,7 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 					unset($data['apps'][$key]);
 				}
 			}
+
 			$data['apps'] = array_values($data['apps']);
 			$response->setData($data);
 		}
