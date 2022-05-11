@@ -65,7 +65,7 @@ class UserCreatedListener implements IEventListener {
 		if (!$event instanceof \OCP\User\Events\UserCreatedEvent) {
 				return;
 		}
-
+/*
 		// Make the user an admin
 		$user = $event->getUser();
 		$userUID = $user->getUID();
@@ -87,7 +87,7 @@ class UserCreatedListener implements IEventListener {
 		// TODO: Make this editable via the UI
 		// Add a list of apps that should be enabled by default
 		//\OC::$server->getAppManager()->enableApp('encryption');
-
+*/
 		return;
 	}
 }
