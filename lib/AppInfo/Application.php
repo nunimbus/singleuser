@@ -24,6 +24,7 @@
 namespace OCA\SingleUser\AppInfo;
 
 use OCA\SingleUser\Listener\UserCreatedListener;
+use OCA\SingleUser\Listener\UserDeletedListener;
 use OCA\SingleUser\Listener\LoadSidebarListener;
 use OCA\SingleUser\Listener\BeforePasswordRevisionClonedEventListener;
 
@@ -43,6 +44,7 @@ use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 
 use OCP\User\Events\UserCreatedEvent;
+use OCP\User\Events\UserDeletedEvent;
 use OCA\Files\Event\LoadSidebar;
 use OCA\Passwords\Events\PasswordRevision\BeforePasswordRevisionClonedEvent;
 
@@ -170,6 +172,7 @@ class Application extends App implements IBootstrap {
 
 	public function register(IRegistrationContext $context): void {
 		$context->registerEventListener(UserCreatedEvent::class, UserCreatedListener::class);
+		$context->registerEventListener(UserDeletedEvent::class, UserDeletedListener::class);
 		$context->registerEventListener(LoadSidebar::class, LoadSidebarListener::class);
 		$context->registerEventListener(BeforePasswordRevisionClonedEvent::class, BeforePasswordRevisionClonedEventListener::class);
 	}
