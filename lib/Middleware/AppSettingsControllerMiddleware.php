@@ -141,8 +141,10 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 				$appInfo = OC::$server->getAppManager()->getAppInfo($app);
 
 				if (
-					isset($appInfo['category']) ||
-					array_key_exists('category', $appInfo)
+					is_array($appInfo) && (
+						isset($appInfo['category']) ||
+						array_key_exists('category', $appInfo)
+					)
 				) {
 					$installedCategories = array_merge(
 						$installedCategories,
