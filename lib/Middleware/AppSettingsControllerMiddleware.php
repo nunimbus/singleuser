@@ -70,6 +70,7 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 			return $response;
 		}
 
+		$ocApp = new OC_App();
 /*		// Fix the broken CSP for app images (really should be moved to the appstore script, but it's not behaving)
 		if ($methodName == 'viewApps') {
 			$domains = array();
@@ -135,7 +136,7 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 			$data = $response->getData();
 
 			$installedCategories = [];
-			$installedApps = OC::$server->getAppManager()->getInstalledApps();
+			$installedApps = array_column($ocApp->listAllApps(), 'id');
 
 			foreach ($installedApps as $app) {
 				$appInfo = OC::$server->getAppManager()->getAppInfo($app);
@@ -198,7 +199,8 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 			];
 
 			$data = $response->getData();
-			$installedApps = array_flip(OC::$server->getAppManager()->getInstalledApps());
+			$installedApps = array_column($ocApp->listAllApps(), 'id');
+			$installedApps = array_flip($installedApps);
 
 			foreach ($data['apps'] as $key=>$app) {
 				if (
