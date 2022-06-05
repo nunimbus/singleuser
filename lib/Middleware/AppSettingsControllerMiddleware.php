@@ -230,6 +230,7 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 					continue;
 				}
 
+				// Restricted types: filesystem, prelogin, authentication, logging, prevent_group_restriction
 				if (OC::$server->getAppManager()->hasProtectedAppType($data['apps'][$key]['types'])) {
 					// If the user is not the instance admin, hide all protected apps
 					if (! $this->isInstanceAdmin) {
