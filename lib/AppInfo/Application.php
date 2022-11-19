@@ -116,7 +116,7 @@ class Application extends App implements IBootstrap {
 				}
 				catch (QueryException $e) {
 					$server->registerAppContainer($appId, new DIContainer($appId));
-					$appContainer = $server->getRegisteredAppContainer($appId);	
+					$appContainer = $server->getRegisteredAppContainer($appId);
 				}
 
 				$appContainer->registerService('AppSettingsControllerMiddleware', function($c){
@@ -124,7 +124,7 @@ class Application extends App implements IBootstrap {
 						$c->get(IRequest::class),
 						$c->get(IControllerMethodReflector::class)
 					);
-				});		
+				});
 				$appContainer->registerMiddleware('AppSettingsControllerMiddleware');
 
 				$appContainer->registerService('ControllerPermissionsMiddleware', function($c){
@@ -142,7 +142,7 @@ class Application extends App implements IBootstrap {
 					);
 				});
 				$appContainer->registerMiddleware('DomManipulationMiddleware');
-		
+
 				$appContainer->registerService('HeaderMenuMiddleware', function($c){
 					return new HeaderMenuMiddleware(
 						$c->get(IRequest::class),
@@ -156,7 +156,7 @@ class Application extends App implements IBootstrap {
 						$c->get(IRequest::class),
 						$c->get(IControllerMethodReflector::class)
 					);
-				});		
+				});
 				$appContainer->registerMiddleware('PersonalSettingsControllerMiddleware');
 
 				$appContainer->registerService('PasswordsPageControllerMiddleware', function($c){
@@ -164,7 +164,7 @@ class Application extends App implements IBootstrap {
 						$c->get(IRequest::class),
 						$c->get(IControllerMethodReflector::class)
 					);
-				});		
+				});
 				$appContainer->registerMiddleware('PasswordsPageControllerMiddleware');
 			}
 		}
@@ -191,8 +191,6 @@ class Application extends App implements IBootstrap {
 			if ($group = $server->getGroupManager()->get('instance-admin')) {
 				$group->delete();
 			}
-
-			$i = 1;
 		}
 	}
 }

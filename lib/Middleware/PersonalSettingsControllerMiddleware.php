@@ -20,17 +20,29 @@ class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
 
 		// Not instance admin and logged in
 		if (
-			$server->getUserSession()->isLoggedIn() && 
+			$server->getUserSession()->isLoggedIn() &&
 			! $this->isInstanceAdmin
 		) {
 			// This SHOULD only match HTML. SHOULD.
 			if ($output != strip_tags($output)) {
 				// TODO: Make this editable via the UI
 				// Remove "You are a member of the following groups" from "Personal Info"
-				$output = preg_replace('#<div id="groups".*<div id="quota"#ms', '<div id="quota"', $output);
+				$newOutput = preg_replace('#<div id="groups".*<div id="quota"#ms', '<div id="quota"', $output);
 
-				// Remove "Reasons to use Nextcloud in your organization" section
-				$output = preg_replace('#<div class="section development-notice#', '<div class="section development-notice hidden', $output);
+				if ($newOutput == $output) {
+					$server->getLogger()->warning(__FILE__ . ':' . __LINE__ . ' Failed to remove the group membership section from the Personal Info page');
+				}
+
+				$output = $newOutput;
+
+				// Hide the "Reasons to use Nextcloud in your organization" section
+				$newOutput = str_replace('development-notice', 'development-notice hidden', $output);
+
+				if ($newOutput == $output) {
+					$server->getLogger()->warning(__FILE__ . ':' . __LINE__ . ' Failed to remove the group membership section from the Personal Info page');
+				}
+
+				$output = $newOutput;
 
 				// Adds a link to the Keycloak change password page (this should really be in a `user_saml` extension plugin)
 /*				if ($server->getUserSession()->getUser()->getBackendClassName() == 'user_saml') {
@@ -54,7 +66,7 @@ class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
 								(isset($json['account-service']) || array_key_exists('account-service', $json))
 							) {
 								$path = explode('/', $server->getRequest()->getRequestUri());
-			
+
 								if (end($path) == 'security') {
 									$passwordBlock = '
 									<div id="security-password" class="section">
@@ -68,7 +80,7 @@ class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
 
 									$output = preg_replace('#<div id="app-content">#', '<div id="app-content">' . $passwordBlock, $output);
 								}
-							}	
+							}
 						}
 						curl_close($ch);
 					}
@@ -85,9 +97,9 @@ class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
 		}
 
 		// Remove the "Administration" section from the personal settings page of non-instance admins
-		// Also removes the "Sharing" sectino (not currently necessary or useful)
+		// Also removes the "Sharing" section (not currently necessary or useful)
 		if (
-			\OC::$server->getUserSession()->isLoggedIn() && 
+			\OC::$server->getUserSession()->isLoggedIn() &&
 			! $this->isInstanceAdmin
 		) {
 			$params = $response->getParams();

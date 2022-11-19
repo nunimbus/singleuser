@@ -4,7 +4,7 @@
 	<id>singleuser</id>
 	<name>Single User</name>
 	<summary>Provide a single-user mode for Nextcloud.</summary>
-	<description>Provide a single-user mode for Nextcloud.</description>
+	<description>This app puts every user in their own isolated group and assigns restricted "sub-admin" privileges. With these privileges, a user can enable and disable apps but cannot remove apps, edit administrative settings, or manage users/groups.</description>
 	<version>1.0.0</version>
 	<licence>agpl</licence>
 	<author>Andrew Summers</author>
@@ -15,6 +15,6 @@
 	</types>
 	<category>tools</category>
 	<dependencies>
-		<nextcloud min-version="20" max-version="24" />
+		<nextcloud min-version="24" max-version="25" />
 	</dependencies>
 </info>

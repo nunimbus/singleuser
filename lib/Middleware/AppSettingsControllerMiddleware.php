@@ -60,8 +60,8 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 				$this->toggleApp(true);
 			}
 			else if ($methodName == 'disableApps') {
-				$this->toggleApp(false);		
-			} 
+				$this->toggleApp(false);
+			}
 		}
 	}
 
@@ -156,7 +156,7 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 
 			$installedCategories = array_unique($installedCategories);
 			$installedCategories = array_flip($installedCategories);
-			
+
 			foreach ($data as $key=>$category) {
 				if (!(
 					isset($installedCategories[$category['id']]) ||
@@ -165,7 +165,7 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 					unset($data[$key]);
 				}
 			}
-			
+
 			$data = array_values($data);
 
 			$allApps = [[
@@ -203,6 +203,7 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 			$installedApps = array_flip($installedApps);
 
 			foreach ($data['apps'] as $key=>$app) {
+/* This is being done by the Docker build. Also, "All Apps" is unnecessary if the apps have been downloaded - they show up under "Your Apps"
 				if (
 					isset($installedApps[$app['id']]) ||
 					array_key_exists($app['id'], $installedApps)
@@ -229,6 +230,7 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 					unset($data['apps'][$key]);
 					continue;
 				}
+*/
 
 				// Restricted types: filesystem, prelogin, authentication, logging, prevent_group_restriction
 				if (OC::$server->getAppManager()->hasProtectedAppType($data['apps'][$key]['types'])) {

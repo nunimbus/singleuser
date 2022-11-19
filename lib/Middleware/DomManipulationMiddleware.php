@@ -2,10 +2,6 @@
 
 namespace OCA\SingleUser\Middleware;
 
-//require "vendor/autoload.php";
-
-//use \Wa72\HtmlPageDom\HtmlPageCrawler;
-
 use OCA\SingleUser\Middleware\MiddlewareConstructor;
 use OCP\AppFramework\Http\Response;
 use OC\Accounts\AccountManager;
@@ -16,20 +12,6 @@ use OC;
 class DomManipulationMiddleware extends MiddlewareConstructor {
 
 	public function beforeOutput($controller, $methodName, $output){
-		if ($output != strip_tags($output)) {
-			if (isset($_ENV['consoleLog']) && array_key_exists('consoleLog', $_ENV)) {//$kc->refreshToken();
-				//echo $kc->token . "\n";
-				
-				$script = '<script nonce="' . \OC::$server->getContentSecurityPolicyNonceManager()->getNonce() . '">';
-				foreach ($_ENV['consoleLog'] as $message) {
-					$script .= "console.log('" . addslashes($message) . "');";
-				}
-
-				$script .= '</script>';
-				$output = preg_replace('#</head>#', $script . '</head>', $output);
-			}
-		}
-
 		// Not instance admin and logged in
 		if (OC::$server->getUserSession()->isLoggedIn() && ! $this->isInstanceAdmin) {
 
@@ -37,8 +19,6 @@ class DomManipulationMiddleware extends MiddlewareConstructor {
 		else {
 			// This SHOULD only match HTML. SHOULD.
 			if ($output != strip_tags($output)) {
-				$style = '<style>.toastify {transform: translate(28.5%, 50px) !important;}</style>';
-				$output = preg_replace('#</head>#', "$style</head>", $output);
 				if ($controller instanceof \OC\Core\Controller\ClientFlowLoginController) {
 					$output = preg_replace('#<span class="warning">#', '<span class="warning hidden">', $output);
 					$icon = file_get_contents($_SERVER['DOCUMENT_ROOT'] . '/core/img/actions/info-white.svg');
@@ -158,21 +138,10 @@ class DomManipulationMiddleware extends MiddlewareConstructor {
 					$info = 'Standard username and password login is broken for this app due to the two-factor system
 							used by NuNimbus. We are working with the app developer to fix this issue. Until then,
 							please log in using an app token, instead.';
+
+					// Remove the scary and confusing warnings from the mobile login page
 					$output = preg_replace('#<p class="info">.*<span class="warning hidden">#ms', '<p class="info">' . $info . '</p><span class="warning hidden">', $output);
 				}
-
-/*				$dom = new HtmlPageCrawler($output);
-
-				// TODO: Make this editable via the UI
-				// Remove the scary and confusing warnings from the mobile login page
-				$dom->filter('.picker-window .info')->remove();
-
-				$output = $dom->saveHTML();
-
-				$output = preg_replace('#data-id="([a-zA-Z0-9]+) ([a-zA-Z0-9]+)"#', 'data-id="\1-\2"', $output);
-
-				return $output;
-*/
 			}
 		}
 

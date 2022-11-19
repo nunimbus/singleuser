@@ -17,14 +17,26 @@ class HeaderMenuMiddleware extends MiddlewareConstructor {
 
 			// This SHOULD only match HTML. SHOULD.
 			if ($output != strip_tags($output)) {
-				
+
 				// TODO: Make this editable via the UI
 				// Remove the "About" listing from the menu
-				$output = preg_replace('/<li data-id="core_users">.*<li data-id/ms', '<li data-id', $output);
+				$newOutput = preg_replace('/<li data-id="core_users">.*<li data-id/ms', '<li data-id', $output);
+
+				if ($newOutput == $output) {
+					OC::$server->getLogger()->warning(__FILE__ . ':' . __LINE__ . ' Failed to remove the About listing from the menu');
+				}
+
+				$output = $newOutput;
 
 				// Remove the "Users" listing from the menu
-				$output = preg_replace('/<li data-id="firstrunwizard-about">.*<li data-id/ms', '<li data-id', $output);
-				
+				$newOutput = preg_replace('/<li data-id="firstrunwizard-about">.*<li data-id/ms', '<li data-id', $output);
+
+				if ($newOutput == $output) {
+					OC::$server->getLogger()->warning(__FILE__ . ':' . __LINE__ . ' Failed to remove the Users listing from the menu');
+				}
+
+				$output = $newOutput;
+
 				return $output;
 			}
 		}
