@@ -30,7 +30,7 @@ class ControllerPermissionsMiddleware extends MiddlewareConstructor {
 		);
 
 		if ($this->userUID && !$this->isInstanceAdmin) {
-			if (!$this->reflector->hasAnnotation('NoAdminRequired')) {
+			if (!$this->reflector->hasAnnotation('NoAdminRequired') && !$this->reflector->hasAnnotation('PublicPage')) {
 				if (!in_array($methodName, $allowedMethods)) {
 					header("Location: /", 302);
 					exit();
