@@ -59,7 +59,7 @@ class UserDeletedListener implements IEventListener {
 	}
 
 	public function handle(Event $event): void {
-		if (!$event instanceof \OCP\User\Events\UserCreatedEvent) {
+		if (!$event instanceof \OCP\User\Events\UserDeletedEvent) {
 				return;
 		}
 

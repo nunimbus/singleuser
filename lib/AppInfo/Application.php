@@ -35,6 +35,7 @@ use OCA\SingleUser\Middleware\ContactsMenuControllerMiddleware;
 use OCA\SingleUser\Middleware\HeaderMenuMiddleware;
 use OCA\SingleUser\Middleware\ControllerPermissionsMiddleware;
 use OCA\SingleUser\Middleware\PasswordsPageControllerMiddleware;
+use OCA\SingleUser\Middleware\UsersControllerMiddleware;
 
 use OCP\AppFramework\Utility\IControllerMethodReflector;
 use OCP\IRequest;
@@ -168,6 +169,22 @@ class Application extends App implements IBootstrap {
 				$appContainer->registerMiddleware('PasswordsPageControllerMiddleware');
 			}
 		}
+
+		try {
+			$appContainer = $server->getRegisteredAppContainer('settings');
+		}
+		catch (QueryException $e) {
+			$server->registerAppContainer('settings', new DIContainer('settings'));
+			$appContainer = $server->getRegisteredAppContainer('settings');
+		}
+
+		$appContainer->registerService('UsersControllerMiddleware', function($c){
+			return new UsersControllerMiddleware(
+				$c->get(IRequest::class),
+				$c->get(IControllerMethodReflector::class)
+			);
+		});
+		$appContainer->registerMiddleware('UsersControllerMiddleware');
 	}
 
 	public function register(IRegistrationContext $context): void {
