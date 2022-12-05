@@ -27,13 +27,31 @@ class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
 			if ($output != strip_tags($output)) {
 				// TODO: Make this editable via the UI
 				// Remove "You are a member of the following groups" from "Personal Info"
-				$newOutput = preg_replace('#<div id="groups".*<div id="quota"#ms', '<div id="quota"', $output);
+				$version = \OC::$server->getConfig()->getSystemValue('version');
+				$mainVersion = explode('.', $version)[0];
 
-				if ($newOutput == $output) {
-					$server->getLogger()->warning(__FILE__ . ':' . __LINE__ . ' Failed to remove the group membership section from the Personal Info page');
+				if ($mainVersion < 25) {
+					$newOutput = preg_replace('#<div id="groups".*<div id="quota"#ms', '<div id="quota"', $output);
+
+					if ($newOutput == $output) {
+						$server->getLogger()->warning(__FILE__ . ':' . __LINE__ . ' Failed to remove the group membership section from the Personal Info page');
+					}
+
+					$output = $newOutput;
 				}
-
-				$output = $newOutput;
+				else {
+					$matches = preg_grep('/initial-state-settings-personalInfoParameters/', explode("\n", $output));
+					$match = array_pop($matches);
+					$matchParts = explode('value="', $match);
+					$value = substr($matchParts[1], 0, -2);
+					$valueJson = base64_decode($value);
+					$valueArr = json_decode($valueJson, true);
+					$valueArr['groups'] = array();
+					$valueJson = json_encode($valueArr);
+					$valueNew = base64_encode($valueJson);
+					$output = str_replace($value, $valueNew, $output);
+					$output = str_replace('</head>', '<style>.details__groups{display:none !important}</style></head>', $output);
+				}
 
 				// Hide the "Reasons to use Nextcloud in your organization" section
 				$newOutput = str_replace('development-notice', 'development-notice hidden', $output);
