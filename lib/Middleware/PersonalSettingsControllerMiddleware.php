@@ -31,36 +31,27 @@ class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
 				$mainVersion = explode('.', $version)[0];
 
 				if ($mainVersion < 25) {
-					$newOutput = preg_replace('#<div id="groups".*<div id="quota"#ms', '<div id="quota"', $output);
-
-					if ($newOutput == $output) {
-						$server->getLogger()->warning(__FILE__ . ':' . __LINE__ . ' Failed to remove the group membership section from the Personal Info page');
-					}
-
-					$output = $newOutput;
+					$output = preg_replace('#<div id="groups".*<div id="quota"#ms', '<div id="quota"', $output);
 				}
 				else {
 					$matches = preg_grep('/initial-state-settings-personalInfoParameters/', explode("\n", $output));
-					$match = array_pop($matches);
-					$matchParts = explode('value="', $match);
-					$value = substr($matchParts[1], 0, -2);
-					$valueJson = base64_decode($value);
-					$valueArr = json_decode($valueJson, true);
-					$valueArr['groups'] = array();
-					$valueJson = json_encode($valueArr);
-					$valueNew = base64_encode($valueJson);
-					$output = str_replace($value, $valueNew, $output);
-					$output = str_replace('</head>', '<style>.details__groups{display:none !important}</style></head>', $output);
+
+					if (sizeof($matches) > 0) {
+						$match = array_pop($matches);
+						$matchParts = explode('value="', $match);
+						$value = substr($matchParts[1], 0, -2);
+						$valueJson = base64_decode($value);
+						$valueArr = json_decode($valueJson, true);
+						$valueArr['groups'] = array();
+						$valueJson = json_encode($valueArr);
+						$valueNew = base64_encode($valueJson);
+						$output = str_replace($value, $valueNew, $output);
+						$output = str_replace('</head>', '<style>.details__groups{display:none !important}</style></head>', $output);
+					}
 				}
 
 				// Hide the "Reasons to use Nextcloud in your organization" section
-				$newOutput = str_replace('development-notice', 'development-notice hidden', $output);
-
-				if ($newOutput == $output) {
-					$server->getLogger()->warning(__FILE__ . ':' . __LINE__ . ' Failed to remove the group membership section from the Personal Info page');
-				}
-
-				$output = $newOutput;
+				$output = str_replace('development-notice', 'development-notice hidden', $output);
 
 				// Adds a link to the Keycloak change password page (this should really be in a `user_saml` extension plugin)
 /*				if ($server->getUserSession()->getUser()->getBackendClassName() == 'user_saml') {
