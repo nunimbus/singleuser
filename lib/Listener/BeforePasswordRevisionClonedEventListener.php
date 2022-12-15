@@ -24,12 +24,10 @@ declare(strict_types=1);
 
 namespace OCA\SingleUser\Listener;
 
-use OCA\Files_Sharing\AppInfo\Application;
 use OCA\Passwords\Events\PasswordRevision\BeforePasswordRevisionClonedEvent;
 use OCA\Passwords\Exception\ApiException;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
-use OCP\Util;
 
 class BeforePasswordRevisionClonedEventListener implements IEventListener {
 	public function handle(Event $event): void {

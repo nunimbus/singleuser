@@ -3,10 +3,8 @@
 namespace OCA\SingleUser\Middleware;
 
 use OCA\SingleUser\Middleware\MiddlewareConstructor;
-use OCP\AppFramework\Http\Response;
-use OC\Accounts\AccountManager;
 use OCA\Settings\Controller\AppSettingsController;
-use OCP\IRequest;
+use OCP\AppFramework\Http\Response;
 use OC_App;
 use OC;
 

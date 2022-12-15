@@ -2,13 +2,8 @@
 
 namespace OCA\SingleUser\Middleware;
 
-use OCA\Passwords\Controller\PageController;
 use OCA\SingleUser\Middleware\MiddlewareConstructor;
-use OCP\AppFramework\Http\Response;
-use OC\Accounts\AccountManager;
-use OCP\IRequest;
-use OC_App;
-use OC;
+use OCA\Passwords\Controller\PageController;
 
 class PasswordsPageControllerMiddleware extends MiddlewareConstructor {
 

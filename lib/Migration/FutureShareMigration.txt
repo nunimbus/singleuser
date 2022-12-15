@@ -1,0 +1,54 @@
+$server = OC::$server;
+
+$permissions = [
+	'shareAPIEnabled' =>                       $server->getConfig()->getAppValue('core', 'shareapi_enabled', 'yes'),
+	'shareDefaultInternalExpireDateSet' =>     $server->getConfig()->getAppValue('core', 'shareapi_default_internal_expire_date', 'no'),
+		'shareInternalExpireAfterNDays' =>                 $server->getConfig()->getAppValue('core', 'shareapi_internal_expire_after_n_days', '7'),
+		'shareInternalEnforceExpireDate' =>                $server->getConfig()->getAppValue('core', 'shareapi_enforce_internal_expire_date', 'no'),
+	'shareDefaultRemoteExpireDateSet' =>       $server->getConfig()->getAppValue('core', 'shareapi_default_remote_expire_date', 'no'),
+		'shareRemoteExpireAfterNDays' =>                   $server->getConfig()->getAppValue('core', 'shareapi_remote_expire_after_n_days', '7'),
+		'shareRemoteEnforceExpireDate' =>                  $server->getConfig()->getAppValue('core', 'shareapi_enforce_remote_expire_date', 'no'),
+
+	'allowLinks' =>                            $server->getConfig()->getAppValue('core', 'shareapi_allow_links', 'yes'),
+	'allowPublicUpload' =>                     $server->getConfig()->getAppValue('core', 'shareapi_allow_public_upload', 'yes'),
+	'enableLinkPasswordByDefault' =>           $server->getConfig()->getAppValue('core', 'shareapi_enable_link_password_by_default', 'no'),
+	'enforceLinkPassword' =>                   \OCP\Util::isPublicLinkPasswordRequired(false),
+	'shareDefaultExpireDateSet' =>             $server->getConfig()->getAppValue('core', 'shareapi_default_expire_date', 'no'),
+		'shareExpireAfterNDays' =>         ]                $server->getConfig()->getAppValue('core', 'shareapi_expire_after_n_days', '7'),
+		'shareEnforceExpireDate' =>                        $server->getConfig()->getAppValue('core', 'shareapi_enforce_expire_date', 'no'),
+	'linksExcludedGroups' =>                   $server->getConfig()->getAppValue('core', 'shareapi_allow_links_exclude_groups', '');
+
+	'allowResharing' =>                        $server->getConfig()->getAppValue('core', 'shareapi_allow_resharing', 'yes'),
+	'allowGroupSharing' =>                     $server->getConfig()->getAppValue('core', 'shareapi_allow_group_sharing', 'yes'),
+	'onlyShareWithGroupMembers' =>             $server->getShareManager()->shareWithGroupMembersOnly(),
+	'shareExcludeGroups' =>                    $server->getConfig()->getAppValue('core', 'shareapi_exclude_groups', 'no') === 'yes',
+	'allowShareDialogUserEnumeration' =>       $server->getConfig()->getAppValue('core', 'shareapi_allow_share_dialog_user_enumeration', 'yes'),
+		'restrictUserEnumerationToGroup' =>                $server->getConfig()->getAppValue('core', 'shareapi_restrict_user_enumeration_to_group', 'no'),
+		'restrictUserEnumerationToPhone' =>                $server->getConfig()->getAppValue('core', 'shareapi_restrict_user_enumeration_to_phone', 'no'),
+		'restrictUserEnumerationFullMatch' =>              $server->getConfig()->getAppValue('core', 'shareapi_restrict_user_enumeration_full_match', 'yes'),
+	// Not shown on page:
+		'restrictUserEnumerationFullMatchUserId' =>        $server->getConfig()->getAppValue('core', 'shareapi_restrict_user_enumeration_full_match_userid', 'yes'),
+		'restrictUserEnumerationFullMatchEmail' =>         $server->getConfig()->getAppValue('core', 'shareapi_restrict_user_enumeration_full_match_email', 'yes'),
+		'restrictUserEnumerationFullMatchIgnoreSecondDN' =>$server->getConfig()->getAppValue('core', 'shareapi_restrict_user_enumeration_full_match_ignore_second_dn', 'no'),
+	'publicShareDisclaimerText' =>             $server->getConfig()->getAppValue('core', 'shareapi_public_link_disclaimertext', null),
+
+	'shareApiDefaultPermissions' =>            $server->getConfig()->getAppValue('core', 'shareapi_default_permissions', Constants::PERMISSION_ALL),
+
+	'outgoing_server2server_share_enabled' =>  $server->getConfig()->getAppValue('files_sharing', 'outgoing_server2server_share_enabled', 'yes');
+	'incoming_server2server_share_enabled' =>  $server->getConfig()->getAppValue('files_sharing', 'incoming_server2server_share_enabled', 'yes');
+	'outgoingServer2serverGroupShareEnabled' =>$server->getConfig()->getAppValue('files_sharing', 'outgoing_server2server_group_share_enabled', 'no');
+	'incomingServer2serverGroupShareEnabled' =>$server->getConfig()->getAppValue('files_sharing', 'incoming_server2server_group_share_enabled', 'no');
+	'lookupServerEnabled' =>                   $server->getConfig()->getAppValue('files_sharing', , 'yes');
+	'lookupServerUploadEnabled' =>             $server->getConfig()->getAppValue('files_sharing', 'lookupServerUploadEnabled', 'yes');
+
+	'sendpasswordmail' =>                      $server->getConfig()->getAppValue('sharebymail', 'sendpasswordmail', 'yes');
+	'replyToInitiator' =>                      $server->getConfig()->getAppValue('sharebymail', 'replyToInitiator', 'yes');
+
+	// Not shown on page
+	'excludedGroups' =>                        $server->getConfig()->getAppValue('core', 'shareapi_exclude_groups_list', '');
+	'passwordExcludedGroupsFeatureEnabled' =>  $server->getConfig()->getSystemValueBool('sharing.allow_disabled_password_enforcement_groups', false),
+	'passwordExcludedGroups' =>                $server->getConfig()->getAppValue('core', 'shareapi_enforce_links_password_excluded_groups', '');
+
+	'onlyShareWithGroupMembers' =>             $server->getShareManager()->shareWithGroupMembersOnly(),
+	'sharingAppEnabled' =>                     $server->getAppManager()->isEnabledForUser('files_sharing'),
+];

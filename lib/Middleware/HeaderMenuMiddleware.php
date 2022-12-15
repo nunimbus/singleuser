@@ -3,10 +3,6 @@
 namespace OCA\SingleUser\Middleware;
 
 use OCA\SingleUser\Middleware\MiddlewareConstructor;
-use OCP\AppFramework\Http\Response;
-use OC\Accounts\AccountManager;
-use OCP\IRequest;
-use OC_App;
 use OC;
 
 class HeaderMenuMiddleware extends MiddlewareConstructor {

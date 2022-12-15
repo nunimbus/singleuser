@@ -5,18 +5,96 @@ namespace OCA\SingleUser\Middleware;
 use OCA\SingleUser\Middleware\MiddlewareConstructor;
 use OCA\Settings\Controller\PersonalSettingsController;
 use OCP\AppFramework\Http\Response;
-use OC\Accounts\AccountManager;
-use OCP\IRequest;
-use OC_App;
+use OC;
 
 class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
-
-	public function beforeOutput($controller, $methodName, $output){
+	public function afterController($controller, $methodName, Response $response): Response {
 		if (! $controller instanceof PersonalSettingsController) {
-			return $output;
+			return $response;
 		}
 
-		$server = \OC::$server;
+		$server = OC::$server;
+
+		// Remove the "Administration" section from the personal settings page of non-instance admins
+		// Also removes several sections that are not currently necessary or useful
+		if (
+			$server->getUserSession()->isLoggedIn() &&
+			! $this->isInstanceAdmin
+		) {
+			$params = $response->getParams();
+			$params['forms']['admin'] = array();
+
+			// Should probably be moved to ControllerPermissionsMiddleware
+			$blockedSections = array(
+				'sharing',
+				'workflow',
+				'privacy',
+			);
+
+			foreach ($blockedSections as $section) {
+				if ($server->getRequest()->getRequestUri() == "/index.php/settings/user/$section") {
+					header("Location: /index.php/settings/user", 302);
+					exit();
+				}
+			}
+
+			foreach ($params['forms']['personal'] as $key=>$form) {
+				if (in_array($form['anchor'], $blockedSections)) {
+					unset($params['forms']['personal'][$key]);
+				}
+			}
+
+			if (
+				$server->getRequest()->getParams()['_route'] == 'settings.PersonalSettings.index' &&
+				$server->getRequest()->getParams()['section'] == 'personal-info'
+			) {
+				$content = array_map('trim', array_filter(explode("\n", $params['content'])));
+				
+				// Remove sections from the "Personal Info" page
+				$sections = array(
+					'<div id="vue-role-section"></div>',
+					'<div id="vue-headline-section"></div>',
+					'<div id="vue-biography-section"></div>',
+					'<div id="vue-profile-section"></div>',
+					'<div id="vue-profile-visibility-section"></div>',
+				);
+
+				foreach ($sections as $section) {
+					$index = array_search($section, $content);
+
+					if ($index) {
+						unset($content[$index]);
+						unset($content[$index - 1]);
+						unset($content[$index + 1]);
+					}
+				}
+
+				// Hide the "Reasons to use Nextcloud in your organization" section
+				$index = array_search('<div class="section development-notice">', $content);
+
+				if ($index) {
+					$content[$index] = '<div class="section development-notice hidden">';
+				}
+
+				$params['content'] = implode("\n", $content);
+			}
+	
+			$response->setParams($params);
+		}
+
+		return $response;
+	}
+
+	public function beforeOutput($controller, $methodName, $output){
+		$server = OC::$server;
+
+		if (! 
+			($controller instanceof PersonalSettingsController &&
+			$server->getRequest()->getParams()['_route'] == 'settings.PersonalSettings.index' &&
+			$server->getRequest()->getParams()['section'] == 'personal-info')
+		) {
+			return $output;
+		}
 
 		// Not instance admin and logged in
 		if (
@@ -25,109 +103,88 @@ class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
 		) {
 			// This SHOULD only match HTML. SHOULD.
 			if ($output != strip_tags($output)) {
-				// TODO: Make this editable via the UI
-				// Remove "You are a member of the following groups" from "Personal Info"
-				$version = \OC::$server->getConfig()->getSystemValue('version');
+				$version = $server->getConfig()->getSystemValue('version');
 				$mainVersion = explode('.', $version)[0];
 
+				// Remove "You are a member of the following groups" from "Personal Info"
 				if ($mainVersion < 25) {
 					$output = preg_replace('#<div id="groups".*<div id="quota"#ms', '<div id="quota"', $output);
 				}
 				else {
-					$matches = preg_grep('/initial-state-settings-personalInfoParameters/', explode("\n", $output));
+					$output = array_map('trim', array_values(array_filter(explode("\n", $output))));
 
-					if (sizeof($matches) > 0) {
-						$match = array_pop($matches);
-						$matchParts = explode('value="', $match);
-						$value = substr($matchParts[1], 0, -2);
-						$valueJson = base64_decode($value);
-						$valueArr = json_decode($valueJson, true);
-						$valueArr['groups'] = array();
-						$valueJson = json_encode($valueArr);
-						$valueNew = base64_encode($valueJson);
-						$output = str_replace($value, $valueNew, $output);
-						$output = str_replace('</head>', '<style>.details__groups{display:none !important}</style></head>', $output);
-					}
-				}
+					// All of the `#initial-state-settings` elements should follow the </noscript> element
+					$i = array_search('</noscript>', $output);
 
-				// Hide the "Reasons to use Nextcloud in your organization" section
-				$output = str_replace('development-notice', 'development-notice hidden', $output);
+					if ($i) {
+						$styles = '
+						<style>
+							.details__groups {
+								display:none !important
+							}
+							.federation-actions,
+							.federation-actions--additional {
+								display:none !important
+							}
+						</style>';
 
-				// Adds a link to the Keycloak change password page (this should really be in a `user_saml` extension plugin)
-/*				if ($server->getUserSession()->getUser()->getBackendClassName() == 'user_saml') {
-					$idpUrl = $server->getAppConfig()->getValue('user_saml', 'idp-entityId');
+						$output[$i] = $output[$i] . $styles;
 
-					if ($idpUrl) {
-						$ch = curl_init();
-						curl_setopt($ch, CURLOPT_URL, $idpUrl);
-						curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-						curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+						for ($i; $i < sizeof($output); $i++) {
+							if (str_starts_with($output[$i], '<input type="hidden" id="initial-state-settings-personalInfoParameters"')) {
+								$match = $output[$i];
+								$matchParts = explode('value="', $match);
+								$value = substr($matchParts[1], 0, -2);
+								$valueJson = base64_decode($value);
+								$valueArr = json_decode($valueJson, true);
 
-						$result = curl_exec($ch);
-						if (curl_errno($ch)) {
-							echo 'Error:' . curl_error($ch);
-						}
-						else {
-							$json = json_decode($result, true);
-
-							if (
-								is_array($json) &&
-								(isset($json['account-service']) || array_key_exists('account-service', $json))
-							) {
-								$path = explode('/', $server->getRequest()->getRequestUri());
-
-								if (end($path) == 'security') {
-									$passwordBlock = '
-									<div id="security-password" class="section">
-										<h2 class="inlineblock">Password</h2>
-										<div class="personal-settings-setting-box personal-settings-password-box">
-											<a target="_blank" href="' . $json['account-service'] . '/#/security/signingin">
-												<input id="passwordbutton" type="submit" value="Change password">
-											</a>
-										</div>
-									</div>';
-
-									$output = preg_replace('#<div id="app-content">#', '<div id="app-content">' . $passwordBlock, $output);
+								// Unset the 'scope' elements to hide the permissions buttons
+								foreach ($valueArr as $key=>$el) {
+									if (
+										is_array($el) && 
+										(isset($el['scope']) || array_key_exists('scope', $el))
+									 ) {
+										unset($valueArr[$key]['scope']);
+									}
 								}
+		
+								unset($valueArr['emailMap']['primaryEmail']['scope']);
+		
+								// Removing the 'scope' elements causes JS errors on 'additionalEmails,' so permissions
+								// buttons cannot be hidden this way. Hide the elements with CSS and block any calls to
+								// the method in ControllerPermissionsMiddleware
+								//foreach ($valueArr['emailMap']['additionalEmails'] as $emailKey=>$email) {
+								//	$valueArr['emailMap']['additionalEmails'][$emailKey]['scope'] = "";
+								//}
+		
+								// Can't delete the 'groups' element - it throws JS errors. So, set it to empty and hide with CSS
+								$valueArr['groups'] = array();
+
+								// Depends on `profileEnabledGlobally` being set to `true` in next block
+								unset($valueArr['role']);
+								unset($valueArr['headline']);
+								unset($valueArr['biography']);
+		
+								$valueJson = json_encode($valueArr);
+								$valueNew = base64_encode($valueJson);
+								$matchParts[1] = $valueNew . '">';
+								$output[$i] = implode('value="', $matchParts);
+							}
+							else if ($output[$i] == '<input type="hidden" id="initial-state-settings-profileEnabledGlobally" value="' . base64_encode('true') . '">') {
+								$output[$i] = '<input type="hidden" id="initial-state-settings-profileEnabledGlobally" value="' . base64_encode('false') . '">';
+							}
+							else if (str_starts_with($output[$i], '<input type="hidden" id="initial-state-settings-profileParameters"')) {
+								unset($output[$i]);
 							}
 						}
-						curl_close($ch);
 					}
+
+					$output = implode("\n", $output);
 				}
-*/				return $output;
+
+				return $output;
 			}
 		}
 		return $output;
-	}
-
-	public function afterController($controller, $methodName, Response $response): Response {
-		if (! $controller instanceof PersonalSettingsController) {
-			return $response;
-		}
-
-		// Remove the "Administration" section from the personal settings page of non-instance admins
-		// Also removes the "Sharing" section (not currently necessary or useful)
-		if (
-			\OC::$server->getUserSession()->isLoggedIn() &&
-			! $this->isInstanceAdmin
-		) {
-			$params = $response->getParams();
-			$params['forms']['admin'] = array();
-
-			if (\OC::$server->getRequest()->getRequestUri() == "/index.php/settings/user/sharing") {
-				header("Location: /index.php/settings/user", 302);
-				exit();
-			}
-			else {
-				foreach ($params['forms']['personal'] as $key=>$form) {
-					if ($form['anchor'] == 'sharing') {
-						unset($params['forms']['personal'][$key]);
-					}
-				}
-				unset($params['forms']['personal']['sharing']);
-			}
-			$response->setParams($params);
-		}
-		return $response;
 	}
 }

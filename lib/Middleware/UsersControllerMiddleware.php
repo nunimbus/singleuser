@@ -4,11 +4,6 @@ namespace OCA\SingleUser\Middleware;
 
 use OCA\SingleUser\Middleware\MiddlewareConstructor;
 use OCA\Settings\Controller\UsersController;
-use OCP\AppFramework\Http\Response;
-use OC\Accounts\AccountManager;
-use OCP\IRequest;
-use OC_App;
-use OC;
 
 class UsersControllerMiddleware extends MiddlewareConstructor {
 

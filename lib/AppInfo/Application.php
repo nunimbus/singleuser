@@ -23,36 +23,41 @@
 
 namespace OCA\SingleUser\AppInfo;
 
-use OCA\SingleUser\Listener\UserCreatedListener;
-use OCA\SingleUser\Listener\UserDeletedListener;
-use OCA\SingleUser\Listener\LoadSidebarListener;
-use OCA\SingleUser\Listener\BeforePasswordRevisionClonedEventListener;
-
-use OCA\SingleUser\Middleware\DomManipulationMiddleware;
-use OCA\SingleUser\Middleware\AppSettingsControllerMiddleware;
-use OCA\SingleUser\Middleware\PersonalSettingsControllerMiddleware;
-use OCA\SingleUser\Middleware\ContactsMenuControllerMiddleware;
-use OCA\SingleUser\Middleware\HeaderMenuMiddleware;
-use OCA\SingleUser\Middleware\ControllerPermissionsMiddleware;
-use OCA\SingleUser\Middleware\PasswordsPageControllerMiddleware;
-use OCA\SingleUser\Middleware\UsersControllerMiddleware;
-
-use OCP\AppFramework\Utility\IControllerMethodReflector;
 use OCP\IRequest;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
-
-use OCP\User\Events\UserCreatedEvent;
-use OCP\User\Events\UserDeletedEvent;
-use OCA\Files\Event\LoadSidebar;
-use OCA\Passwords\Events\PasswordRevision\BeforePasswordRevisionClonedEvent;
+use OCP\AppFramework\Utility\IControllerMethodReflector;
 
 // Needed to register middleware
 use OC_App;
 use OCP\AppFramework\QueryException;
 use OC\AppFramework\DependencyInjection\DIContainer;
+
+// Middleware
+use OCA\SingleUser\Middleware\DomManipulationMiddleware;
+use OCA\SingleUser\Middleware\AppSettingsControllerMiddleware;
+use OCA\SingleUser\Middleware\PersonalSettingsControllerMiddleware;
+use OCA\SingleUser\Middleware\AdminSettingsControllerMiddleware;
+use OCA\SingleUser\Middleware\ContactsMenuControllerMiddleware;
+use OCA\SingleUser\Middleware\HeaderMenuMiddleware;
+use OCA\SingleUser\Middleware\ControllerPermissionsMiddleware;
+use OCA\SingleUser\Middleware\UsersControllerMiddleware;
+use OCA\SingleUser\Middleware\ShareesAPIControllerMiddleware;
+//use OCA\SingleUser\Middleware\PasswordsPageControllerMiddleware;
+
+// Events
+//use OCP\User\Events\UserCreatedEvent;
+use OCP\User\Events\UserDeletedEvent;
+use OCA\Files\Event\LoadSidebar;
+//use OCA\Passwords\Events\PasswordRevision\BeforePasswordRevisionClonedEvent;
+
+// Event listeners
+//use OCA\SingleUser\Listener\UserCreatedListener;
+use OCA\SingleUser\Listener\UserDeletedListener;
+use OCA\SingleUser\Listener\LoadSidebarListener;
+//use OCA\SingleUser\Listener\BeforePasswordRevisionClonedEventListener;
 
 class Application extends App implements IBootstrap {
 
@@ -61,55 +66,9 @@ class Application extends App implements IBootstrap {
 	public function __construct(array $urlParams = []) {
 		parent::__construct(self::APP_ID, $urlParams);
 
-		// Block from https://localhost:3443/index.php/settings/users
-//		register_shutdown_function(function () {
-//			Log the execution time for the user
-//		});
-
 		$server = \OC::$server;
 
-		// Set up the `instance-admin` group
-		if ($server->getAppConfig()->getValue(self::APP_ID, 'enabled') == 'no') {
-			$groupManager = $server->getGroupManager();
-			$group = $server->getGroupManager()->createGroup('instance-admin');
-
-			if ($server->getUserSession()->isLoggedIn()) {
-				$user = $server->getUserSession()->getUser();
-				$userUID = $user->getUID();
-
-				if ($groupManager->isInGroup($userUID, 'admin')) {
-					$group->addUser($user);
-				}
-			}
-			else {
-				foreach ($groupManager->displayNamesInGroup('admin') as $userUID=>$displayName) {
-					$userManager = $server->getUserManager();
-					$user = $userManager->get($userUID);
-					$group->addUser($user);
-				}
-			}
-		}
-
-		// Register middleware to the 'core' app
-		$coreContainer = $server->query(\OC\Core\Application::class)->getContainer();
-
-		$coreContainer->registerService('DomManipulationMiddleware', function($c){
-			return new DomManipulationMiddleware(
-				$c->get(IRequest::class),
-				$c->get(IControllerMethodReflector::class)
-			);
-		});
-		$coreContainer->registerMiddleware('DomManipulationMiddleware');
-
-		$coreContainer->registerService('ContactsMenuControllerMiddleware', function($c){
-			return new ContactsMenuControllerMiddleware(
-				$c->get(IRequest::class),
-				$c->get(IControllerMethodReflector::class)
-			);
-		});
-		$coreContainer->registerMiddleware('ContactsMenuControllerMiddleware');
-
-		// Registers the middleware to all applications
+		// Registers middleware to all applications
 		foreach (OC_App::getEnabledApps() as $appId) {
 			if ($appId != self::APP_ID) {
 				try {
@@ -120,78 +79,132 @@ class Application extends App implements IBootstrap {
 					$appContainer = $server->getRegisteredAppContainer($appId);
 				}
 
-				$appContainer->registerService('AppSettingsControllerMiddleware', function($c){
-					return new AppSettingsControllerMiddleware(
-						$c->get(IRequest::class),
-						$c->get(IControllerMethodReflector::class)
-					);
-				});
-				$appContainer->registerMiddleware('AppSettingsControllerMiddleware');
-
-				$appContainer->registerService('ControllerPermissionsMiddleware', function($c){
+				$appContainer->registerService('SingleUser\ControllerPermissionsMiddleware', function($c){
 					return new ControllerPermissionsMiddleware(
 						$c->get(IRequest::class),
 						$c->get(IControllerMethodReflector::class)
 					);
 				});
-				$appContainer->registerMiddleware('ControllerPermissionsMiddleware');
+				$appContainer->registerMiddleware('SingleUser\ControllerPermissionsMiddleware');
 
-				$appContainer->registerService('DomManipulationMiddleware', function($c){
+				$appContainer->registerService('SingleUser\DomManipulationMiddleware', function($c){
 					return new DomManipulationMiddleware(
 						$c->get(IRequest::class),
 						$c->get(IControllerMethodReflector::class)
 					);
 				});
-				$appContainer->registerMiddleware('DomManipulationMiddleware');
+				$appContainer->registerMiddleware('SingleUser\DomManipulationMiddleware');
 
-				$appContainer->registerService('HeaderMenuMiddleware', function($c){
+				$appContainer->registerService('SingleUser\HeaderMenuMiddleware', function($c){
 					return new HeaderMenuMiddleware(
 						$c->get(IRequest::class),
 						$c->get(IControllerMethodReflector::class)
 					);
 				});
-				$appContainer->registerMiddleware('HeaderMenuMiddleware');
-
-				$appContainer->registerService('PersonalSettingsControllerMiddleware', function($c){
-					return new PersonalSettingsControllerMiddleware(
-						$c->get(IRequest::class),
-						$c->get(IControllerMethodReflector::class)
-					);
-				});
-				$appContainer->registerMiddleware('PersonalSettingsControllerMiddleware');
-
-				$appContainer->registerService('PasswordsPageControllerMiddleware', function($c){
-					return new PasswordsPageControllerMiddleware(
-						$c->get(IRequest::class),
-						$c->get(IControllerMethodReflector::class)
-					);
-				});
-				$appContainer->registerMiddleware('PasswordsPageControllerMiddleware');
+				$appContainer->registerMiddleware('SingleUser\HeaderMenuMiddleware');
 			}
 		}
 
+		// Register middleware to the 'core' app
+		$coreContainer = $server->get(\OC\Core\Application::class)->getContainer();
+
+		$coreContainer->registerService('SingleUser\DomManipulationMiddleware', function($c){
+			return new DomManipulationMiddleware(
+				$c->get(IRequest::class),
+				$c->get(IControllerMethodReflector::class)
+			);
+		});
+		$coreContainer->registerMiddleware('SingleUser\DomManipulationMiddleware');
+
+		$coreContainer->registerService('SingleUser\ContactsMenuControllerMiddleware', function($c){
+			return new ContactsMenuControllerMiddleware(
+				$c->get(IRequest::class),
+				$c->get(IControllerMethodReflector::class)
+			);
+		});
+		$coreContainer->registerMiddleware('SingleUser\ContactsMenuControllerMiddleware');
+
+		// Register middleware to the "settings" app
 		try {
-			$appContainer = $server->getRegisteredAppContainer('settings');
+			$settingsContainer = $server->getRegisteredAppContainer('settings');
 		}
 		catch (QueryException $e) {
 			$server->registerAppContainer('settings', new DIContainer('settings'));
-			$appContainer = $server->getRegisteredAppContainer('settings');
+			$settingsContainer = $server->getRegisteredAppContainer('settings');
 		}
 
-		$appContainer->registerService('UsersControllerMiddleware', function($c){
+		$settingsContainer->registerService('SingleUser\UsersControllerMiddleware', function($c){
 			return new UsersControllerMiddleware(
 				$c->get(IRequest::class),
 				$c->get(IControllerMethodReflector::class)
 			);
 		});
-		$appContainer->registerMiddleware('UsersControllerMiddleware');
+		$settingsContainer->registerMiddleware('SingleUser\UsersControllerMiddleware');
+
+		$settingsContainer->registerService('SingleUser\PersonalSettingsControllerMiddleware', function($c){
+			return new PersonalSettingsControllerMiddleware(
+				$c->get(IRequest::class),
+				$c->get(IControllerMethodReflector::class)
+			);
+		});
+		$settingsContainer->registerMiddleware('SingleUser\PersonalSettingsControllerMiddleware');
+
+		$settingsContainer->registerService('SingleUser\AdminSettingsControllerMiddleware', function($c){
+			return new AdminSettingsControllerMiddleware(
+				$c->get(IRequest::class),
+				$c->get(IControllerMethodReflector::class)
+			);
+		});
+		$settingsContainer->registerMiddleware('SingleUser\AdminSettingsControllerMiddleware');
+
+		$settingsContainer->registerService('SingleUser\AppSettingsControllerMiddleware', function($c){
+			return new AppSettingsControllerMiddleware(
+				$c->get(IRequest::class),
+				$c->get(IControllerMethodReflector::class)
+			);
+		});
+		$settingsContainer->registerMiddleware('SingleUser\AppSettingsControllerMiddleware');
+
+		// Register middleware to the files_sharing app
+		try {
+			$filesSharingContainer = $server->getRegisteredAppContainer('files_sharing');
+		}
+		catch (QueryException $e) {
+			$server->registerAppContainer('files_sharing', new DIContainer('files_sharing'));
+			$filesSharingContainer = $server->getRegisteredAppContainer('files_sharing');
+		}
+
+		$filesSharingContainer->registerService('SingleUser\ShareesAPIControllerMiddleware', function($c){
+			return new ShareesAPIControllerMiddleware(
+				$c->get(IRequest::class),
+				$c->get(IControllerMethodReflector::class)
+			);
+		});
+		$filesSharingContainer->registerMiddleware('SingleUser\ShareesAPIControllerMiddleware');
+
+		// Register middleware to the "passwords" app
+		//try {
+		//	$passwordsContainer = $server->getRegisteredAppContainer('settings');
+		//}
+		//catch (QueryException $e) {
+		//	$server->registerAppContainer('settings', new DIContainer('settings'));
+		//	$passwordsContainer = $server->getRegisteredAppContainer('settings');
+		//}
+		//
+		//$passwordsContainer->registerService('SingleUser\PasswordsPageControllerMiddleware', function($c){
+		//	return new PasswordsPageControllerMiddleware(
+		//		$c->get(IRequest::class),
+		//		$c->get(IControllerMethodReflector::class)
+		//	);
+		//});
+		//$passwordsContainer->registerMiddleware('SingleUser\PasswordsPageControllerMiddleware');
 	}
 
 	public function register(IRegistrationContext $context): void {
-		$context->registerEventListener(UserCreatedEvent::class, UserCreatedListener::class);
+		//$context->registerEventListener(UserCreatedEvent::class, UserCreatedListener::class);
 		$context->registerEventListener(UserDeletedEvent::class, UserDeletedListener::class);
 		$context->registerEventListener(LoadSidebar::class, LoadSidebarListener::class);
-		$context->registerEventListener(BeforePasswordRevisionClonedEvent::class, BeforePasswordRevisionClonedEventListener::class);
+		//$context->registerEventListener(BeforePasswordRevisionClonedEvent::class, BeforePasswordRevisionClonedEventListener::class);
 	}
 
 	public function boot(IBootContext $context): void {

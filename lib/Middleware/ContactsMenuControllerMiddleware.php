@@ -3,12 +3,8 @@
 namespace OCA\SingleUser\Middleware;
 
 use OCA\SingleUser\Middleware\MiddlewareConstructor;
-use OCA\Settings\Controller\ContactsMenuController;
+use OC\Core\Controller\ContactsMenuController;
 use OCP\AppFramework\Http\Response;
-use OC\Accounts\AccountManager;
-use OCP\IRequest;
-use OC_App;
-use OC;
 
 class ContactsMenuControllerMiddleware extends MiddlewareConstructor {
 
@@ -17,7 +13,7 @@ class ContactsMenuControllerMiddleware extends MiddlewareConstructor {
 			return $response;
 		}
 
-		// Hide local users from the contacts listing for non-instance admins
+		// Hide local users from the contacts listing for non instance-admins
 		if (
 			$this->isAdmin &&
 			! $this->isInstanceAdmin &&

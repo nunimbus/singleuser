@@ -24,7 +24,6 @@ declare(strict_types=1);
 
 namespace OCA\SingleUser\Listener;
 
-use OCA\Files_Sharing\AppInfo\Application;
 use OCA\Files\Event\LoadSidebar;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -36,7 +35,7 @@ class LoadSidebarListener implements IEventListener {
 			return;
 		}
 
-		Util::addScript('files_sharing', '../../singleuser/js/dist/files_sharing_tab');
-		$event->stopPropagation();
+		//Util::addScript('files_sharing', '../../singleuser/js/dist/files_sharing_tab');
+		//$event->stopPropagation();
 	}
 }
