@@ -10,11 +10,11 @@ class ClientFlowLoginControllerMiddleware extends MiddlewareConstructor {
 
 	public function beforeController($controller, $methodName) {
 		if (! $controller instanceof ClientFlowLoginController) {
-			return $response;
+			return;
 		}
 
 		// This simply removes the link from the mobile login page for logging in with an app password
 		\OC::$server->getSession()->set('oauth.state', true);
-		return $response;
+		return;
 	}
 }
