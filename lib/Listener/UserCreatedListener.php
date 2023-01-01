@@ -37,19 +37,9 @@ class UserCreatedListener implements IEventListener {
 
 		// This is all being handled via Keycloak. If support is added beyond NuNimbus, this needs to be added.
 /*
-		// Make the user an admin
-		$user = $event->getUser();
-		$userUID = $user->getUID();
-
-		$userGroup = OC::$server->getGroupManager()->createGroup('admin-' . $userUID);
-		$adminGroup = OC::$server->getGroupManager()->get('admin');
-
-		$userGroup->addUser($user);
-		$adminGroup->addUser($user);
-
 		// Make the user the admin of the self-named group
 		$userController = OC::$server->query(\OCA\Provisioning_API\Controller\UsersController::class);
-		$userController->addSubAdmin($userUID, 'admin-' . $userUID);
+		$userController->addSubAdmin($userUID, 'user-' . $userUID);
 
 		// TODO: Make this editable via the UI
 		// Set the storage quota

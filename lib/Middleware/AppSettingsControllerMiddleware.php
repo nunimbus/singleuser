@@ -5,46 +5,15 @@ namespace OCA\SingleUser\Middleware;
 use OCA\SingleUser\Middleware\MiddlewareConstructor;
 use OCA\Settings\Controller\AppSettingsController;
 use OCP\AppFramework\Http\Response;
+use OCP\AppFramework\Http\JSONResponse;
+use OCP\AppFramework\Http\IOutput;
+use OC\AppFramework\DependencyInjection\DIContainer;
 use OC_App;
 use OC;
 
 class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 
-	public function beforeOutput($controller, $methodName, $output){
-		if (! $controller instanceof AppSettingsController) {
-			return $output;
-		}
-
-		// Not instance admin and logged in
-		if (OC::$server->getUserSession()->isLoggedIn() && ! $this->isInstanceAdmin) {
-			$json = json_decode($output, true);
-
-			if (is_array($json)) {
-				if ($methodName == 'listApps') {
-					foreach ($json['apps'] as $key=>$app) {
-						// Prevents apps from being removed
-						$json['apps'][$key]['removable'] = false;
-						$json['apps'][$key]['canUnInstall'] = false;
-
-						// Mark apps as disabled if they are not enabled for their group
-						if ($json['apps'][$key]['active']) {
-							$groupIds = array_flip($json['apps'][$key]['groups']);
-							if (sizeof($groupIds) != 0 && ! isset($groupIds['admin-' . $this->userUID])) {
-								$json['apps'][$key]['active'] = false;
-							}
-						}
-
-						// Add a 'types' array to enabled apps (using 'filesystem' as a placeholder for no particular reason) - this hides the "Limit to groups" element from standard users
-						if (sizeof($json['apps'][$key]['types']) == 0) {
-							array_push($json['apps'][$key]['types'], 'filesystem');
-						}
-					}
-					$output = json_encode($json);
-				}
-
-				return $output;
-			}
-		}
+	public function beforeOutput($controller, $methodName, $output) {
 		return $output;
 	}
 
@@ -53,13 +22,23 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 			return;
 		}
 
-		if ($this->isAdmin && ! $this->isInstanceAdmin) {
-			if ($methodName == 'enableApps') {
-				$this->toggleApp(true);
+		if (! $this->isAdmin) {
+			try {
+				$container = OC::$server->getRegisteredAppContainer('OCA\Settings\AppInfo\Application');
+
+				if (! $container->offsetExists('Bypass')) {
+					return;
+				}
+			} catch (\Throwable $th) {
+				return;
 			}
-			else if ($methodName == 'disableApps') {
-				$this->toggleApp(false);
-			}
+		}
+
+		if ($methodName == 'enableApps') {
+			$this->toggleApp(true, $controller, $methodName);
+		}
+		else if ($methodName == 'disableApps') {
+			$this->toggleApp(false, $controller, $methodName);
 		}
 	}
 
@@ -68,69 +47,23 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 			return $response;
 		}
 
-		$ocApp = new OC_App();
-/*		// Fix the broken CSP for app images (really should be moved to the appstore script, but it's not behaving)
-		if ($methodName == 'viewApps') {
-			$domains = array();
+		if (! $this->isAdmin) {
+			try {
+				$container = OC::$server->getRegisteredAppContainer('OCA\Settings\AppInfo\Application');
 
-			foreach ($controller->listApps()->getData()['apps'] as $app) {
-				if (
-					OC::$server->getAppManager()->getAppInfo($app['id']) &&
-					(
-						isset(OC::$server->getAppManager()->getAppInfo($app['id'])['screenshot']) ||
-						array_key_exists('screenshot', OC::$server->getAppManager()->getAppInfo($app['id']))
-					)
-				) {
-					$screenshots = OC::$server->getAppManager()->getAppInfo($app['id'])['screenshot'];
-					if (!is_array($screenshots)) {
-						$screenshots = array($screenshots);
-					}
-					foreach ($screenshots as $screenshot) {
-//						foreach ($screenshot['@attributes'] as $url) {
-							$url = $screenshot;
-							$url = filter_var(trim($url), FILTER_SANITIZE_URL);
-
-							if (filter_var($url, FILTER_VALIDATE_URL)) {
-								$parsed_url = parse_url(trim($url));
-								array_push($domains, $parsed_url['scheme'] . '://' . $parsed_url['host']);
-							}
-						}
-//					}
-					if (isset($app['appstoreData']) || array_key_exists('appstoreData', $app)) {
-						if ($app['appstoreData']['screenshots']) {
-							foreach ($app['appstoreData']['screenshots'] as $screenshots) {
-								foreach ($screenshots as $url) {
-									$url = filter_var(trim($url), FILTER_SANITIZE_URL);
-
-									if (filter_var($url, FILTER_VALIDATE_URL)) {
-										$parsed_url = parse_url(trim($url));
-										array_push($domains, $parsed_url['scheme'] . '://' . $parsed_url['host']);
-									}
-								}
-							}
-						}
-					}
+				if (! $container->offsetExists('Bypass')) {
+					return $response;
 				}
+			} catch (\Throwable $th) {
+				return $response;
 			}
-			$policy = $response->getContentSecurityPolicy();
-
-			$domains = array_unique($domains);
-
-			foreach ($domains as $domain) {
-				$policy->addAllowedImageDomain($domain);
-			}
-
-			$policy->disallowImageDomain("'self'");
-			$response->setContentSecurityPolicy($policy);
 		}
-*/
+
+		$ocApp = new OC_App();
 		// TODO: Make this editable via the UI
-		// Remove unused categories
-		// Add a "Protected" category to the app list for the instance admin
-		if (
-			$methodName == 'listCategories' &&
-			$this->isInstanceAdmin
-		) {
+		// Remove unused categories <- This is being done in the Docker build
+		// Add a "Protected" category to the app list for the admins
+		if ($methodName == 'listCategories') {
 			$data = $response->getData();
 
 			$installedCategories = [];
@@ -166,15 +99,7 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 
 			$data = array_values($data);
 
-			$allApps = [[
-				'id'			=> 'all',
-				'ident'			=> 'all',
-				'displayName'	=> 'All Apps',
-			]];
-
-			$data = array_merge($allApps, $data);
-
-			if ($this->isInstanceAdmin) {
+			if ($this->isAdmin) {
 				$protected = [
 					'id'			=> 'protected',
 					'ident'			=> 'protected',
@@ -187,9 +112,8 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 			$response->setData($data);
 		}
 
-		// Only list apps that are installed; force current version (prevent upgrades)
-		// Add all apps to the "All Apps" category
-		// When loading the app manager, sort or hide all apps that are of a protected type (cannot be limited to specific groups)
+		// Only list apps that are installed; force current version (prevent upgrades) <- This is being done in the Docker build
+		// When loading the app manager, sort or hide all apps that are of a protected type (i.e. cannot be limited to specific groups)
 		if ($methodName == 'listApps') {
 			// TODO: Make this editable via the UI
 			$hiddenApps = [
@@ -201,44 +125,15 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 			$installedApps = array_flip($installedApps);
 
 			foreach ($data['apps'] as $key=>$app) {
-/* This is being done by the Docker build. Also, "All Apps" is unnecessary if the apps have been downloaded - they show up under "Your Apps"
-				if (
-					isset($installedApps[$app['id']]) ||
-					array_key_exists($app['id'], $installedApps)
-				) {
-					$data['apps'][$key]['version'] = OC::$server->getAppManager()->getAppVersion($app['id']);
-
-					if (!(
-						isset($data['apps'][$key]['category']) ||
-						array_key_exists('category', $data['apps'][$key])
-					)) {
-						$data['apps'][$key]['category'] = array('all');
-					}
-					else if (is_array($data['apps'][$key]['category'])) {
-						array_push($data['apps'][$key]['category'], 'all');
-					}
-					else {
-						$data['apps'][$key]['category'] = array(
-							$data['apps'][$key]['category'],
-							'all',
-						);
-					}
-				}
-				else {
-					unset($data['apps'][$key]);
-					continue;
-				}
-*/
-
 				// Restricted types: filesystem, prelogin, authentication, logging, prevent_group_restriction
 				if (OC::$server->getAppManager()->hasProtectedAppType($data['apps'][$key]['types'])) {
-					// If the user is not the instance admin, hide all protected apps
-					if (! $this->isInstanceAdmin) {
+					// If the user is not an admin, hide all protected apps
+					if (! $this->isAdmin) {
 						unset($data['apps'][$key]);
 						continue;
 					}
 
-					// If the user IS the instance admin, add protected apps to the "protected" category
+					// If the user IS an admin, add protected apps to the "protected" category
 					else {
 						$data['apps'][$key]['appstore'] = 'true';
 						if (is_array($data['apps'][$key]['category'])) {
@@ -252,8 +147,32 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 						}
 					}
 				}
-				if (in_array($data['apps'][$key]['id'], $hiddenApps) && ! $this->isInstanceAdmin) {
-					unset($data['apps'][$key]);
+
+				// Prevents apps from being removed (assumes this is a Docker container with all apps preinstalled)
+				$data['apps'][$key]['removable'] = false;
+				$data['apps'][$key]['canUnInstall'] = false;
+
+				if (! $this->isAdmin) {
+					// Hide manually-defined hidden apps (set above before foreach loop)
+					if (in_array($data['apps'][$key]['id'], $hiddenApps)) {
+						unset($data['apps'][$key]);
+					}
+
+					// Mark apps as disabled if they are not enabled for their group
+					if ($data['apps'][$key]['active']) {
+						$groupIds = array_flip($data['apps'][$key]['groups']);
+						if (sizeof($groupIds) != 0 && ! isset($groupIds['user-' . $this->userUID])) {
+							$data['apps'][$key]['active'] = false;
+						}
+					}
+
+					// Hide the "Limit app to groups" checkbox. The API method itself is blocked in ControllerPermissionsMiddleware
+					if (! in_array('prevent_group_restriction', $data['apps'][$key]['types'])) {
+						array_push( $data['apps'][$key]['types'], 'prevent_group_restriction');
+					}
+
+					// Hide any user group names to prevent privacy leaks
+					$data['apps'][$key]['groups'] = array();
 				}
 			}
 
@@ -264,91 +183,118 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 		return $response;
 	}
 
-	// Haven't handled the case where instance admin enables app for all users without limiting to groups and then a regular user disables the app:
-	// - Hide the app from all other users and make the app mandatory?
-	// - Automatically enable app for all existing groups?
-	//
-	// Assumes all apps are already downloaded by the instance admin and on the system
-	private function toggleApp($enable) {
-		$params = json_decode(file_get_contents('php://input'),1);
+	// Assumes all apps are already downloaded by the admin and on the system
+	private function toggleApp($enable, $controller, $methodName) {
+		$params = OC::$server->getRequest()->getParams();
+		$app = $params['appIds'][0];
+		$appTypes = OC_App::getAppInfo($app)['types'];
 
-		if (sizeof($params['appIds']) == 1) {// && ! isset($params['groups'])) {
-			$app = $params['appIds'][0];
-			$appTypes = OC_App::getAppInfo($app)['types'];
+		if (! OC::$server->getAppManager()->hasProtectedAppType($appTypes)) {
+			$userGID = OC::$server->getGroupManager()->get('user-' . $this->userUID)->getGID();
 
-			if (! OC::$server->getAppManager()->hasProtectedAppType($appTypes)) {
+			// This will return 'yes', 'no', or a JSON array of group IDs for which the app is enabled
+			$enabled = OC::$server->getConfig()->getAppValue($app, 'enabled', 'no');
+			$groupIds = null;
+			if ($enabled === 'yes') {
+				$active = true;
+			} elseif ($enabled === 'no') {
+				$active = false;
+				$groupIds = array($userGID);
+			} else {
+				$active = true;
+				$groupIds = json_decode($enabled);
+			}
 
-				$userGroups = OC::$server->getGroupManager()->getUserIdGroups($this->userUID);
+			$allGroups = OC::$server->getGroupManager()->search("user-");
 
-				// If the user is in a self-named group
-				if ((isset($userGroups['admin-' . $this->userUID]) || array_key_exists('admin-' . $this->userUID, $userGroups))) {
-					$userGroup = $userGroups['admin-' . $this->userUID];
-					$userGID = $this->userUID;
-				}
-				// This should not happen - user is not an admin and shouldn't be able to modify apps
-				else {
-					die;
-				}
+			if (! is_array($groupIds)) {
+				$groupIds = array_map(function($GID) { return $GID->getGID();}, $allGroups);
+			}
 
-				$enabled = \OC::$server->getConfig()->getAppValue($app, 'enabled', 'no');
-				$groupIds = null;
-				if ($enabled === 'yes') {
-					$active = true;
-				} elseif ($enabled === 'no') {
-					$active = false;
-					$groupIds = array($userGID);
-				} else {
-					$active = true;
-					$groupIds = json_decode($enabled);
-				}
-
-				$groups = array();
-
-				if (is_array($groupIds)) {// && $active) {
-					foreach ($groupIds as $groupId) {
-						if ($groupId != $userGID) {
-							array_push($groups, OC::$server->getGroupManager()->get('admin-' . $groupId));
-						}
-					}
-					if ($enable) {
-						array_push($groups, OC::$server->getGroupManager()->get('admin-' . $userGID));
-					}
-				}
-
-				// Need a way to list all groups on the server and remove user from that list
-				else if (! is_array($groups) && $active) {
-					$groups = array();
-				}
-
-				// These should literally not be possible - call was made to disable an app, but $active = false?
-				else if (! is_array($groups) && ! $active) {
-				}
-				else if (! is_array($groups) && ! $active) {
-				}
-
-				// Let the controller go ahead and disable the app for all users
-				if (sizeof($groups) == 0 && ! $enable) {
-					return;
-				}
-				OC::$server->getAppManager()->enableAppForGroups($app, $groups);
-
-				// There is likely a MUCH cleaner way to do this, but for now, it works
+			// Convert the list of group IDs into group objects; the loop excludes the current user's group if the
+			// requested action is disabling the app; otherwise, the user group object is added in the `if` statement
+			if ($active && $groupIds != array($userGID)) {
 				if ($enable) {
-					echo '{"data":{"update_required":false}}';
+					array_push($groupIds, $userGID);
 				}
 				else {
-					echo '[]';
+					if (($key = array_search($userGID, $groupIds)) !== false){
+						unset($groupIds[$key]);
+					}
 				}
-
-				OC::$server->getTempManager()->clean();
-				OC::$server->getLockingProvider()->releaseAll();
-				OC::$server->getSession()->__destruct();
-				die;
 			}
-			// Throw an error - protected app (heck, the app should be hidden . . . )
+
+			$groups = array_filter($allGroups, function($group) use ($groupIds) {
+				$GID = $group->getGID();
+
+				foreach ($groupIds as $groupId) {
+					if ($GID == $groupId) {
+						return $group;
+					}
+				}
+			});
+
+			$groups = array_values($groups);
+
+			// App is currently enabled and limited to all groups/users except the current user; the current user is
+			// requesting to enable the app, so just enable it for everyone
+			if (
+				is_array($groupIds) &&
+				sizeof($groups) == sizeof($allGroups) &&
+				$active &&
+				$enable
+			) {
+				OC::$server->getAppManager()->enableApp($app);
+			}
+			// These should literally not be possible - call was made to disable an app, but $active = false?
+			else if (! is_array($groupIds) && ! $active) {
+				exit();
+			}
+
+			// Let the controller go ahead and disable the app for all users
+			else if (sizeof($groups) == 0 && ! $enable) {
+				return;
+			}
 			else {
-
+				// Regardless of $enable == true/false, this will enable the app for the correct subset of users. This is
+				// due to the block above with the comment "Convert the list of group IDs into group objects"
+				OC::$server->getAppManager()->enableAppForGroups($app, $groups);
 			}
+
+			if ($enable) {
+				$data = array(
+					'data' => array(
+						'update_required' => false,
+					),
+				);
+			}
+			else {
+				$data = array();
+			}
+
+			try {
+				$container = $server->getRegisteredAppContainer('OCA\Settings\AppInfo\Application');
+			}
+			catch (\Throwable $e) {
+				OC::$server->registerAppContainer('settings', new DIContainer('OCA\Settings\AppInfo\Application'));
+				$container = OC::$server->getRegisteredAppContainer('OCA\Settings\AppInfo\Application');
+			}
+
+			$io = $container[IOutput::class];
+			$response = new JSONResponse($data);
+			$output = $response->render();
+			$io->setHeader('Content-Length: ' . strlen($output));
+			$io->setOutput($output);
+
+			exit;
+		}
+		// This allows the admin to enable/disable protected apps
+		else if ($this->isAdmin) {
+			return;
+		}
+		// Throw an error - protected app (heck, the app should be hidden . . . )
+		else {
+			throw new \Exception();
 		}
 	}
 }

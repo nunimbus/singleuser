@@ -39,25 +39,20 @@ use OC\AppFramework\DependencyInjection\DIContainer;
 use OCA\SingleUser\Middleware\DomManipulationMiddleware;
 use OCA\SingleUser\Middleware\AppSettingsControllerMiddleware;
 use OCA\SingleUser\Middleware\PersonalSettingsControllerMiddleware;
-use OCA\SingleUser\Middleware\AdminSettingsControllerMiddleware;
 use OCA\SingleUser\Middleware\ContactsMenuControllerMiddleware;
 use OCA\SingleUser\Middleware\HeaderMenuMiddleware;
 use OCA\SingleUser\Middleware\ControllerPermissionsMiddleware;
 use OCA\SingleUser\Middleware\UsersControllerMiddleware;
 use OCA\SingleUser\Middleware\ShareesAPIControllerMiddleware;
-//use OCA\SingleUser\Middleware\PasswordsPageControllerMiddleware;
+use OCA\SingleUser\Middleware\ClientFlowLoginControllerMiddleware;
 
 // Events
 //use OCP\User\Events\UserCreatedEvent;
 use OCP\User\Events\UserDeletedEvent;
-use OCA\Files\Event\LoadSidebar;
-//use OCA\Passwords\Events\PasswordRevision\BeforePasswordRevisionClonedEvent;
 
 // Event listeners
 //use OCA\SingleUser\Listener\UserCreatedListener;
 use OCA\SingleUser\Listener\UserDeletedListener;
-use OCA\SingleUser\Listener\LoadSidebarListener;
-//use OCA\SingleUser\Listener\BeforePasswordRevisionClonedEventListener;
 
 class Application extends App implements IBootstrap {
 
@@ -69,6 +64,9 @@ class Application extends App implements IBootstrap {
 		$server = \OC::$server;
 
 		// Registers middleware to all applications
+		$allApps = OC_App::getEnabledApps();
+		array_push($allApps, 'core');
+
 		foreach (OC_App::getEnabledApps() as $appId) {
 			if ($appId != self::APP_ID) {
 				try {
@@ -108,6 +106,14 @@ class Application extends App implements IBootstrap {
 		// Register middleware to the 'core' app
 		$coreContainer = $server->get(\OC\Core\Application::class)->getContainer();
 
+		$coreContainer->registerService('SingleUser\ControllerPermissionsMiddleware', function($c){
+			return new ControllerPermissionsMiddleware(
+				$c->get(IRequest::class),
+				$c->get(IControllerMethodReflector::class)
+			);
+		});
+		$coreContainer->registerMiddleware('SingleUser\ControllerPermissionsMiddleware');
+
 		$coreContainer->registerService('SingleUser\DomManipulationMiddleware', function($c){
 			return new DomManipulationMiddleware(
 				$c->get(IRequest::class),
@@ -123,6 +129,14 @@ class Application extends App implements IBootstrap {
 			);
 		});
 		$coreContainer->registerMiddleware('SingleUser\ContactsMenuControllerMiddleware');
+
+		$coreContainer->registerService('SingleUser\ClientFlowLoginControllerMiddleware', function($c){
+			return new ClientFlowLoginControllerMiddleware(
+				$c->get(IRequest::class),
+				$c->get(IControllerMethodReflector::class)
+			);
+		});
+		$coreContainer->registerMiddleware('SingleUser\ClientFlowLoginControllerMiddleware');
 
 		// Register middleware to the "settings" app
 		try {
@@ -149,14 +163,6 @@ class Application extends App implements IBootstrap {
 		});
 		$settingsContainer->registerMiddleware('SingleUser\PersonalSettingsControllerMiddleware');
 
-		$settingsContainer->registerService('SingleUser\AdminSettingsControllerMiddleware', function($c){
-			return new AdminSettingsControllerMiddleware(
-				$c->get(IRequest::class),
-				$c->get(IControllerMethodReflector::class)
-			);
-		});
-		$settingsContainer->registerMiddleware('SingleUser\AdminSettingsControllerMiddleware');
-
 		$settingsContainer->registerService('SingleUser\AppSettingsControllerMiddleware', function($c){
 			return new AppSettingsControllerMiddleware(
 				$c->get(IRequest::class),
@@ -164,6 +170,23 @@ class Application extends App implements IBootstrap {
 			);
 		});
 		$settingsContainer->registerMiddleware('SingleUser\AppSettingsControllerMiddleware');
+
+		// Register middleware to the "provisioning_api" app
+		try {
+			$provisioningApiContainer = $server->getRegisteredAppContainer('provisioning_api');
+		}
+		catch (QueryException $e) {
+			$server->registerAppContainer('provisioning_api', new DIContainer('provisioning_api'));
+			$provisioningApiContainer = $server->getRegisteredAppContainer('provisioning_api');
+		}
+
+		$provisioningApiContainer->registerService('SingleUser\UsersControllerMiddleware', function($c){
+			return new UsersControllerMiddleware(
+				$c->get(IRequest::class),
+				$c->get(IControllerMethodReflector::class)
+			);
+		});
+		$provisioningApiContainer->registerMiddleware('SingleUser\UsersControllerMiddleware');
 
 		// Register middleware to the files_sharing app
 		try {
@@ -181,46 +204,13 @@ class Application extends App implements IBootstrap {
 			);
 		});
 		$filesSharingContainer->registerMiddleware('SingleUser\ShareesAPIControllerMiddleware');
-
-		// Register middleware to the "passwords" app
-		//try {
-		//	$passwordsContainer = $server->getRegisteredAppContainer('settings');
-		//}
-		//catch (QueryException $e) {
-		//	$server->registerAppContainer('settings', new DIContainer('settings'));
-		//	$passwordsContainer = $server->getRegisteredAppContainer('settings');
-		//}
-		//
-		//$passwordsContainer->registerService('SingleUser\PasswordsPageControllerMiddleware', function($c){
-		//	return new PasswordsPageControllerMiddleware(
-		//		$c->get(IRequest::class),
-		//		$c->get(IControllerMethodReflector::class)
-		//	);
-		//});
-		//$passwordsContainer->registerMiddleware('SingleUser\PasswordsPageControllerMiddleware');
 	}
 
 	public function register(IRegistrationContext $context): void {
 		//$context->registerEventListener(UserCreatedEvent::class, UserCreatedListener::class);
 		$context->registerEventListener(UserDeletedEvent::class, UserDeletedListener::class);
-		$context->registerEventListener(LoadSidebar::class, LoadSidebarListener::class);
-		//$context->registerEventListener(BeforePasswordRevisionClonedEvent::class, BeforePasswordRevisionClonedEventListener::class);
 	}
 
 	public function boot(IBootContext $context): void {
-		// When the app is disabled, clean up the `instance-admin` group
-		// This has to be done in `boot` because `getGroupManager` cannot resolve groups till here
-		$server = $context->getServerContainer();
-
-		if (
-			$server->getRequest()->getRequestUri() == '/index.php/settings/apps/disable' &&
-			in_array(self::APP_ID, $server->getRequest()->getParams()['appIds'])
-		) {
-			$groupManager = $server->getGroupManager();
-
-			if ($group = $server->getGroupManager()->get('instance-admin')) {
-				$group->delete();
-			}
-		}
 	}
 }

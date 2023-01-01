@@ -3,32 +3,25 @@
 namespace OCA\SingleUser\Middleware;
 
 use OCA\SingleUser\Middleware\MiddlewareConstructor;
+use OCP\AppFramework\Http\Response;
+use OCP\AppFramework\Http\TemplateResponse;
 use OC;
 
 class HeaderMenuMiddleware extends MiddlewareConstructor {
+	public function afterController($controller, $methodName, Response $response): Response {
 
-	public function beforeOutput($controller, $methodName, $output){
-		if ($methodName == 'index') {
-			// Not instance admin and logged in
-			if (OC::$server->getUserSession()->isLoggedIn() && ! $this->isInstanceAdmin) {
-
-				// This SHOULD only match HTML. SHOULD.
-				if ($output != strip_tags($output)) {
-        	        // TODO: Make this editable via the UI
-					$sections = [
-                        'admin_settings',
-						'firstrunwizard_about',
-						'core_users',
-					];
-
-					$sections = implode('|', $sections);
-					$newOutput = $output;
-
-					$newOutput = preg_replace("/<li data-id=\"($sections)\">\n.*\n.*\n.*\n.*\n.*<\/li>\n/mU", '', $output);
-					return $newOutput;
-				}
-			}
+		// Adds the app store link to the header menu
+		if ($response instanceof TemplateResponse) {
+			OC::$server->get('OC\NavigationManager')->add([
+				'type' => 'settings',
+				'id' => 'core_apps',
+				'order' => 5,
+				'href' => OC::$server->getUrlGenerator()->linkToRoute('settings.AppSettings.viewApps'),
+				'icon' => OC::$server->getUrlGenerator()->imagePath('settings', 'apps.svg'),
+				'name' => OC::$server->getL10NFactory()->get('lib')->t('Apps'),
+			]);
 		}
-		return $output;
+
+		return $response;
 	}
 }

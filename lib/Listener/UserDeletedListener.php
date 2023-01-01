@@ -38,7 +38,7 @@ class UserDeletedListener implements IEventListener {
 		$user = $event->getUser();
 		$userUID = $user->getUID();
 
-		OC::$server->getGroupManager()->get('admin-' . $userUID)->delete();
+		OC::$server->getGroupManager()->get('user-' . $userUID)->delete();
 
 		return;
 	}

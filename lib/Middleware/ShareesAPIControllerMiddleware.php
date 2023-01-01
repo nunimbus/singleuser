@@ -14,9 +14,6 @@ class ShareesAPIControllerMiddleware extends MiddlewareConstructor {
 		if (! $controller instanceof ShareAPIController) {
 			return;
 		}
-//		return;
-
-
 		if ($methodName == 'createShare') {
 			$server = \OC::$server;
 			$params = $server->getRequest()->getParams();
@@ -92,8 +89,8 @@ class ShareesAPIControllerMiddleware extends MiddlewareConstructor {
 			return $output;
 		}
 
-		// Hide local users from the contacts listing for non instance-admins
-		if ($this->isAdmin && ! $this->isInstanceAdmin) {
+		// Hide local users from the contacts listing for non-admins
+		if (! $this->isAdmin) {
 			$data = json_decode($output, true);
 
 			//foreach ($data['contacts'] as $key=>$contact) {

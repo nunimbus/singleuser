@@ -12,19 +12,37 @@ class UsersControllerMiddleware extends MiddlewareConstructor {
 			return $response;
 		}
 
-		// Hide the 'admin-' groups from the user manager
-		if ($this->isInstanceAdmin) {
-			$params = $response->getParams();
-			foreach ($params['serverData']['groups'] as $key=>$group) {
-				if (str_starts_with($group['id'], 'admin-')) {
-					unset($params['serverData']['groups'][$key]);
+		// Hide the 'user-' groups from the user manager sidebars
+		$params = $response->getParams();
+		foreach ($params['serverData']['groups'] as $key=>$group) {
+			if (str_starts_with($group['id'], 'user-')) {
+				unset($params['serverData']['groups'][$key]);
+			}
+		}
+
+		$params['serverData']['groups'] = array_values($params['serverData']['groups']);
+		$response->setParams($params);
+
+		return $response;
+	}
+
+	public function beforeOutput($controller, $methodName, $output) {
+		if (! $controller instanceof OCA\Settings\Controller\UsersController && $methodName != 'getUsersDetails') {
+			return $output;
+		}
+
+		// Hide the 'user-' groups from the user manager user details
+		$data = json_decode($output, true);
+
+		foreach ($data['ocs']['data']['users'] as $userKey=>$user) {
+			foreach ($user['groups'] as $groupKey=>$group) {
+				if (str_starts_with($group, 'user-')) {
+					unset($user['groups'][$groupKey]);
+					$data['ocs']['data']['users'][$userKey]['groups'] = array_values($user['groups']);
 				}
 			}
-
-			array_values($params);
-			$response->setParams($params);
 		}
-		
-		return $response;
+
+		return json_encode($data);
 	}
 }

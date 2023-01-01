@@ -3,198 +3,165 @@
 namespace OCA\SingleUser\Middleware;
 
 use OCA\SingleUser\Middleware\MiddlewareConstructor;
-use OCP\Route\IRouter;
+use OC\AppFramework\Middleware\MiddlewareDispatcher;
+use OCP\AppFramework\Utility\IControllerMethodReflector;
+use OC\AppFramework\Utility\ControllerMethodReflector;
+use OC\AppFramework\Middleware\Security\SecurityMiddleware;
+use OCA\Settings\Middleware\SubadminMiddleware;
+use OC\AppFramework\Http\Request;
+use OCP\AppFramework\Http\Response;
+use OCP\AppFramework\Http\JSONResponse;
+use OCP\AppFramework\App;
+use OCP\INavigationManager;
+use OCP\IURLGenerator;
+use OCP\IUserSession;
 use OC;
 
-class ControllerPermissionsMiddleware extends MiddlewareConstructor {//implements IRouter {
-	private $router;
-	private $routes = array();
-	private $routeNames = array();
-
-/*	public function __construct() {
-		$this->router = OC::$server->getRouter();
-		$this->routes['routes'] = array();
-	}
-
-	public function getRoutingFiles() {
-		return $this->router->getRoutingFiles();
-	}
-
-	public function loadRoutes($app = null) {
-		$this->router->loadRoutes($app);
-	}
-
-	public function useCollection($name) {
-		$this->router->useCollection($name);
-	}
-
-	public function getCurrentCollection() {
-		return $this->router->getCurrentCollection();
-	}
-
-	public function create($name, $pattern, array $defaults = [], array $requirements = []) {
-		array_push($this->routes['routes'], array(
-			'name' => $name,
-		));
-
-		array_push($this->routeNames, $name);
-		return $this->router->create($name, $pattern, $defaults, $requirements);
-	}
-
-	public function findMatchingRoute(string $url): array {
-		return $this->router->findMatchingRoute($url);
-	}
-
-	public function match($url) {
-		$this->router->match($url);
-	}
-
-	public function getGenerator() {
-		return $this->router->getGenerator();
-	}
-
-	public function generate($name, $parameters = [], $absolute = false) {
-		return $this->router->generate($name, $parameters, $absolute);
-	}
-*/
+class ControllerPermissionsMiddleware extends MiddlewareConstructor {
 	public function beforeController($controller, $methodName) {
-/*		$route = OC::$server->getRequest()->getParams()['_route'];
+	}
 
-		$routingFiles = OC::$server->getRouter()->getRoutingFiles();
+	public function afterException($controller, $methodName, \Exception $exception): Response {
+		$routeName = OC::$server->getRequest()->getParams()['_route'];
 
-		foreach ($routingFiles as $appName=>$file) {
-			$routes = include $file;
-			$newRoutes = array();
-
-			if (is_array($routes)) {
-				foreach ($routes as $key=>$type) {
-					$newRoutes[$key] = array($appName => $routes[$key]);
-				}
-				$this->routes = array_merge_recursive($newRoutes, $this->routes);
-			}
-
-			if (is_array($routes)) {
-				foreach ($routes as $type=>$route) {
-					if ($type == 'resources' || $type == 'ocs-resources') continue;
-					foreach ($route as $el) {
-						$routeParts = str_replace('#', '.', $el['name']);
-						$routeName = "$appName.$routeParts";
-
-						if ($type != 'routes') {
-							$routeName = "$type.$routeName";
-						}
-						array_push($this->routeNames, $routeName);
-
-						if (isset($el['postfix']) || array_key_exists('postfix', $el)) {
-							array_push($this->routeNames, $routeName . $el['postfix']);
-						}
-					}
-				}
-			}
-			$i = 1;
+		// Hide group names from being returned (this is called when loading OCA\Settings\Controller\AppSettingsController)
+		// This largely prevents JS errors because something SHOULD be returned, but this controller was bypassed
+		if (
+			$routeName != 'ocs.provisioning_api.Groups.getGroups'
+		) {
+			throw $exception;
 		}
 
-		$this->routeNames = array_unique($this->routeNames);
-		sort($this->routeNames);
+		$response = array (
+			'ocs' => array (
+				'meta' => array (
+					'status' => 'ok',
+					'statuscode' => 200,
+					'message' => 'OK',
+				),
+				'data' => array (
+					'groups' => array(),
+				),
+			),
+		);
 
-		$currentRoute = OC::$server->getRequest()->getParams()['_route'];
-		if (! in_array($currentRoute, $this->routeNames)) {
-			$thisIsABigProblem = 1;
+		return new JSONResponse($response);
+	}
+
+	public function afterController($controller, $methodName, Response $response): Response {
+		$routeName = OC::$server->getRequest()->getParams()['_route'];
+		$routeParts = explode('.', $routeName);
+		$appName = null;
+
+		if (sizeof($routeParts) == 3) {
+			$appName = $routeParts[0];
 		}
-		*/
-
-		$allowedMethods = array(
-			'viewApps',//settings.AppSettings.viewApps
-			'listCategories',//settings.AppSettings.listCategories
-			'listApps',//settings.AppSettings.listApps
-			'enableApps',//settings.AppSettings.enableApps
-			'disableApps',//settings.AppSettings.disableApps
-			'getCss',
-			'getStylesheet',
-			'getSvgFromCore',
-			'getThemedIcon',
-			'getSvgFromApp',
-		);
-
-		$disallowedMethods = array(
-			'usersList',
-		);
-
-		$filteredMethods = array(
-			'editUser' => [
-				'.*Scope' => ['*'],
-				'role' => ['*'],
-			],
-		);
-
-		$params = OC::$server->getRequest()->getParams();
-		$currentRoute = OC::$server->getRequest()->getParams()['_route'];
-		$methodName = $methodName;
-
-		if ($this->userUID && !$this->isInstanceAdmin) {
-			if ($this->reflector->hasAnnotation('AuthorizedAdminSetting')) {
-				$i = 1;
-			}
-			else if ($this->reflector->hasAnnotation('PasswordConfirmationRequired')) {
-				$i = 1;
-			}
-			else if ($this->reflector->hasAnnotation('SubAdminRequired')) {
-				$i = 1;
-			}
-			else if ($this->reflector->hasAnnotation('NoAdminRequired')) {
-				$i = 1;
-			}
-			else if ($this->reflector->hasAnnotation('PublicPage')) {
-				$i = 1;
-			}
-			else if ($this->reflector->hasAnnotation('OnlyUnauthenticatedUsers')) {
-				$i = 1;
-			}
-			else {
-				$i = 1;
-			}
-
-
-			// If the function doesn't explicitly have the annotations of @NoAdminRequired or @PublicPage, assume it is
-			// an admin page and block it unless otherwise allowed.
-			if (!$this->reflector->hasAnnotation('NoAdminRequired') && !$this->reflector->hasAnnotation('PublicPage')) {
-				if (!in_array($methodName, $allowedMethods)) {
-					header("Location: /", 302);
-					exit();
-				}
-			}
-			else {
-				if (in_array($methodName, $disallowedMethods)) {
-					header("Location: /", 302);
-					exit();
-				}
-			}
-
-			// If the page is 
-			if ($this->reflector->hasAnnotation('NoAdminRequired') || $this->reflector->hasAnnotation('PublicPage')) {
-				if (isset($filteredMethods[$methodName]) || array_key_exists($methodName, $filteredMethods)) {
-					$params = OC::$server->getRequest()->getParams();
-
-					if (
-						(isset($params['key']) || array_key_exists('key', $params)) &&
-						(isset($params['value']) || array_key_exists('value', $params))
-					) {
-						foreach ($filteredMethods as $method=>$keys) {
-							foreach ($keys as $key=>$values) {
-								foreach ($values as $value) {
-									if (
-										($key == '*' || preg_match('#' . $key . '#', $params['key'])) &&
-										($value == '*' || preg_match('#' . $value . '#', $params['value']))
-									) {
-										header("Location: /", 302);
-										exit();			
-									}
-								}
-							}
-						}
-					}
-				}
-			}
+		else if (sizeof($routeParts) == 4) {
+			$appName = $routeParts[1];
 		}
+		else {
+			return $response;
+		}
+
+		if (
+			$this->isAdmin ||
+			// These are the routes to permit despite user permissions
+			(
+				$routeName != 'settings.AppSettings.viewApps' &&
+				$routeName != 'settings.AppSettings.listApps' &&
+				$routeName != 'settings.AppSettings.listCategories' &&
+				$routeName != 'settings.AppSettings.enableApps' &&
+				$routeName != 'settings.AppSettings.disableApps'
+			) ||
+			// These are exceptions to the routes above. If these result in `true`, do not permit the user action
+			(
+				// Prevent API calls to enable/disable apps for different groups. When enabling/disabling apps, the array
+				// size should be 0 because `groups` is cleared in AppSettingsControllerMiddleware
+				(
+					(isset(OC::$server->getRequest()->getParams()['groups']) || array_key_exists('groups', OC::$server->getRequest()->getParams())) &&
+					sizeof(OC::$server->getRequest()->getParams()['groups']) != 0
+				)
+			) ||
+			OC::$server->getRegisteredAppContainer($appName)->offsetExists('Bypass')
+		) {
+			return $response;
+		}
+
+		$this->rerunController($controller, $methodName, $routeName);
+	}
+
+	private function rerunController($controller, $methodName, $routeName) {
+		$routeParts = explode('.', $routeName);
+		$appName = null;
+
+		if (sizeof($routeParts) == 3) {
+			$appName = $routeParts[0];
+		}
+		else if (sizeof($routeParts) == 4) {
+			$appName = $routeParts[1];
+		}
+		else {
+			return $response;
+		}
+
+		$c = OC::$server->getRegisteredAppContainer($appName);
+		$application = new App($this->getApplicationClass($appName));
+		$container = $application->getContainer();
+
+		$container->registerAlias('MiddlewareDispatcher', MiddlewareDispatcher::class);
+		$container->registerService(MiddlewareDispatcher::class, function($c) {
+			$dispatcher = new MiddlewareDispatcher();
+			$middlewareDispatcher = OC::$server->getRegisteredAppContainer('settings')->get(MiddlewareDispatcher::class);
+			$middlewares = $middlewareDispatcher->getMiddlewares();
+
+			$securityMiddleware = new SecurityMiddleware(
+				$c->offsetGet('Request'),
+				$c->get(IControllerMethodReflector::class),
+				$c->get(INavigationManager::class),
+				$c->get(IURLGenerator::class),
+				$c->offsetGet('Psr\Log\LoggerInterface'),
+				$c->offsetGet('AppName'),
+				true,
+				true,
+				true,
+				OC::$server->getAppManager(),
+				$c->offsetGet('OCP\IL10N'),
+				$c->get('OC\Settings\AuthorizedGroupMapper'),
+				OC::$server->get(IUserSession::class)
+			);
+
+			foreach ($middlewares as $key=>$middleware) {
+				if ($middleware instanceof SecurityMiddleware) {
+					$middlewares[$key] = $securityMiddleware;
+				}
+				else if (
+					$middleware instanceof SubadminMiddleware ||
+					$middleware instanceof $this
+				) {
+					unset($middlewares[$key]);
+				}
+			};
+
+			foreach ($middlewares as $middleware) {
+				$dispatcher->registerMiddleware($middleware);
+			}
+
+			return $dispatcher;
+		});
+
+		$controller = $container->get(get_class($controller));
+		$dispatcher = $container->offsetGet('Dispatcher');
+		$container->offsetSet('Bypass', true);
+		\OC\AppFramework\App::main(get_class($controller), $methodName, $container, OC::$server->getRequest()->getParams());
+
+		exit();
+	}
+
+	// Borrowed from OC\Route\Router
+	private function getApplicationClass(string $appName) {
+		$appNameSpace = \OCP\AppFramework\App::buildAppNamespace($appName);
+
+		$applicationClassName = $appNameSpace . '\\AppInfo\\Application';
+		return $applicationClassName;
 	}
 }

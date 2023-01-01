@@ -13,12 +13,8 @@ class ContactsMenuControllerMiddleware extends MiddlewareConstructor {
 			return $response;
 		}
 
-		// Hide local users from the contacts listing for non instance-admins
-		if (
-			$this->isAdmin &&
-			! $this->isInstanceAdmin &&
-			$methodName == 'index'
-		) {
+		// Hide local users from the contacts listing for non-admins
+		if (! $this->isAdmin && $methodName == 'index') {
 			$data = $response->getData();
 
 			foreach ($data['contacts'] as $key=>$contact) {

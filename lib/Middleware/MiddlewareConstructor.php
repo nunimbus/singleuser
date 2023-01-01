@@ -8,7 +8,6 @@ use OCP\IRequest;
 use OC;
 
 class MiddlewareConstructor extends Middleware {
-	public $isInstanceAdmin = false;
 	public $isAdmin = false;
 	public $userUID = null;
 
@@ -21,18 +20,8 @@ class MiddlewareConstructor extends Middleware {
 		$this->reflector = $reflector;
 
 		if (OC::$server->getUserSession()->isLoggedIn()) {
-			$groupManager = OC::$server->getGroupManager();
-			$user = OC::$server->getUserSession()->getUser();
-			$userUID = $user->getUID();
-
-			$this->userUID = $userUID;
-
-			if ($groupManager->isInGroup($userUID, 'instance-admin')) {
-				$this->isInstanceAdmin = true;
-			}
-			if ($groupManager->isInGroup($userUID, 'admin')) {
-				$this->isAdmin = true;
-			}
+			$this->isAdmin = OC::$server->getGroupManager()->isAdmin(OC::$server->getUserSession()->getUser()->getUID());
+			$this->userUID = OC::$server->getUserSession()->getUser()->getUID();
 		}
 	}
 }

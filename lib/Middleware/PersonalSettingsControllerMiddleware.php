@@ -15,15 +15,11 @@ class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
 
 		$server = OC::$server;
 
-		// Remove the "Administration" section from the personal settings page of non-instance admins
-		// Also removes several sections that are not currently necessary or useful
+		// Removes several sections that are not currently necessary or useful
 		if (
 			$server->getUserSession()->isLoggedIn() &&
-			! $this->isInstanceAdmin
+			! $this->isAdmin
 		) {
-			$params = $response->getParams();
-			$params['forms']['admin'] = array();
-
 			// Should probably be moved to ControllerPermissionsMiddleware
 			$blockedSections = array(
 				'sharing',
@@ -49,7 +45,7 @@ class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
 				$server->getRequest()->getParams()['section'] == 'personal-info'
 			) {
 				$content = array_map('trim', array_filter(explode("\n", $params['content'])));
-				
+
 				// Remove sections from the "Personal Info" page
 				$sections = array(
 					'<div id="vue-role-section"></div>',
@@ -78,7 +74,7 @@ class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
 
 				$params['content'] = implode("\n", $content);
 			}
-	
+
 			$response->setParams($params);
 		}
 
@@ -88,7 +84,7 @@ class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
 	public function beforeOutput($controller, $methodName, $output){
 		$server = OC::$server;
 
-		if (! 
+		if (!
 			($controller instanceof PersonalSettingsController &&
 			$server->getRequest()->getParams()['_route'] == 'settings.PersonalSettings.index' &&
 			$server->getRequest()->getParams()['section'] == 'personal-info')
@@ -96,10 +92,10 @@ class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
 			return $output;
 		}
 
-		// Not instance admin and logged in
+		// Not admin and logged in
 		if (
 			$server->getUserSession()->isLoggedIn() &&
-			! $this->isInstanceAdmin
+			! $this->isAdmin
 		) {
 			// This SHOULD only match HTML. SHOULD.
 			if ($output != strip_tags($output)) {
@@ -141,22 +137,22 @@ class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
 								// Unset the 'scope' elements to hide the permissions buttons
 								foreach ($valueArr as $key=>$el) {
 									if (
-										is_array($el) && 
+										is_array($el) &&
 										(isset($el['scope']) || array_key_exists('scope', $el))
 									 ) {
 										unset($valueArr[$key]['scope']);
 									}
 								}
-		
+
 								unset($valueArr['emailMap']['primaryEmail']['scope']);
-		
+
 								// Removing the 'scope' elements causes JS errors on 'additionalEmails,' so permissions
 								// buttons cannot be hidden this way. Hide the elements with CSS and block any calls to
 								// the method in ControllerPermissionsMiddleware
 								//foreach ($valueArr['emailMap']['additionalEmails'] as $emailKey=>$email) {
 								//	$valueArr['emailMap']['additionalEmails'][$emailKey]['scope'] = "";
 								//}
-		
+
 								// Can't delete the 'groups' element - it throws JS errors. So, set it to empty and hide with CSS
 								$valueArr['groups'] = array();
 
@@ -164,7 +160,7 @@ class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
 								unset($valueArr['role']);
 								unset($valueArr['headline']);
 								unset($valueArr['biography']);
-		
+
 								$valueJson = json_encode($valueArr);
 								$valueNew = base64_encode($valueJson);
 								$matchParts[1] = $valueNew . '">';
