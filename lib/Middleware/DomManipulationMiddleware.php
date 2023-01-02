@@ -3,6 +3,8 @@
 namespace OCA\SingleUser\Middleware;
 
 use OCA\SingleUser\Middleware\MiddlewareConstructor;
+use OC\Core\Controller\ClientFlowLoginController;
+use OC\Core\Controller\ClientFlowLoginV2Controller;
 use OC;
 
 class DomManipulationMiddleware extends MiddlewareConstructor {
@@ -10,7 +12,7 @@ class DomManipulationMiddleware extends MiddlewareConstructor {
 	public function beforeOutput($controller, $methodName, $output){
 		// This SHOULD only match HTML. SHOULD.
 		if ($output != strip_tags($output)) {
-			if ($controller instanceof \OC\Core\Controller\ClientFlowLoginController) {
+			if ($controller instanceof ClientFlowLoginController || $controller instanceof ClientFlowLoginV2Controller) {
 				// Remove the scary and confusing warnings from the mobile login page
 				$output = explode("\n", $output);
 
