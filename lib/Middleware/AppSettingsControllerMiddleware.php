@@ -135,7 +135,9 @@ class AppSettingsControllerMiddleware extends MiddlewareConstructor {
 
 					// If the user IS an admin, add protected apps to the "protected" category
 					else {
+						$data['apps'][$key]['name'] = $data['apps'][$key]['name'] . ' (Protected)';
 						$data['apps'][$key]['appstore'] = 'true';
+
 						if (is_array($data['apps'][$key]['category'])) {
 							array_push($data['apps'][$key]['category'], 'protected');
 						}
