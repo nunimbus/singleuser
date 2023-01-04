@@ -34,6 +34,8 @@ class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
 				}
 			}
 
+			$params = $response->getParams();
+
 			foreach ($params['forms']['personal'] as $key=>$form) {
 				if (in_array($form['anchor'], $blockedSections)) {
 					unset($params['forms']['personal'][$key]);
