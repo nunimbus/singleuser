@@ -45,13 +45,16 @@ use OCA\SingleUser\Middleware\ControllerPermissionsMiddleware;
 use OCA\SingleUser\Middleware\UsersControllerMiddleware;
 use OCA\SingleUser\Middleware\ShareesAPIControllerMiddleware;
 use OCA\SingleUser\Middleware\ClientFlowLoginControllerMiddleware;
+use OCA\SingleUser\Middleware\PersonalControllerMiddleware;
 
 // Events
 //use OCP\User\Events\UserCreatedEvent;
+use OCP\Group\Events\UserAddedEvent;
 use OCP\User\Events\UserDeletedEvent;
 
 // Event listeners
 //use OCA\SingleUser\Listener\UserCreatedListener;
+use OCA\SingleUser\Listener\UserAddedListener;
 use OCA\SingleUser\Listener\UserDeletedListener;
 
 class Application extends App implements IBootstrap {
@@ -204,10 +207,28 @@ class Application extends App implements IBootstrap {
 			);
 		});
 		$filesSharingContainer->registerMiddleware('SingleUser\ShareesAPIControllerMiddleware');
+
+		// Register middleware to the privacy app
+		try {
+			$privacyContainer = $server->getRegisteredAppContainer('privacy');
+		}
+		catch (QueryException $e) {
+			$server->registerAppContainer('privacy', new DIContainer('privacy'));
+			$privacyContainer = $server->getRegisteredAppContainer('privacy');
+		}
+
+		$privacyContainer->registerService('SingleUser\PersonalControllerMiddleware', function($c){
+			return new PersonalControllerMiddleware(
+				$c->get(IRequest::class),
+				$c->get(IControllerMethodReflector::class)
+			);
+		});
+		$privacyContainer->registerMiddleware('SingleUser\PersonalControllerMiddleware');
 	}
 
 	public function register(IRegistrationContext $context): void {
 		//$context->registerEventListener(UserCreatedEvent::class, UserCreatedListener::class);
+		$context->registerEventListener(UserAddedEvent::class, UserAddedListener::class);
 		$context->registerEventListener(UserDeletedEvent::class, UserDeletedListener::class);
 	}
 

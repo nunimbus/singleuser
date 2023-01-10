@@ -107,9 +107,16 @@ class ShareesAPIControllerMiddleware extends MiddlewareConstructor {
 			// Force the display name of the user to match the search term used - don't disclose names, emails, or
 			// usernames until the recipient opens the file
 			foreach ($data['ocs']['data']['exact']['users'] as $key=>$user) {
+				if ($data['ocs']['data']['exact']['users'][$key]['label'] == $params['search']) {
+					unset($data['ocs']['data']['exact']['users'][$key]);
+					continue;
+				}
+
 				$data['ocs']['data']['exact']['users'][$key]['label'] = $params['search'];
 				$data['ocs']['data']['exact']['users'][$key]['value']['shareWith'] = $params['search'];
 			}
+
+			$data['ocs']['data']['exact']['users'] = array_values($data['ocs']['data']['exact']['users']);
 
 			$output = json_encode($data);
 		}

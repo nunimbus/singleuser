@@ -22,9 +22,9 @@ class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
 		) {
 			// Should probably be moved to ControllerPermissionsMiddleware
 			$blockedSections = array(
-				'sharing',
+//				'sharing',
 				'workflow',
-				'privacy',
+				//'privacy',
 			);
 
 			foreach ($blockedSections as $section) {
@@ -74,6 +74,29 @@ class PersonalSettingsControllerMiddleware extends MiddlewareConstructor {
 					$content[$index] = '<div class="section development-notice hidden">';
 				}
 
+				$params['content'] = implode("\n", $content);
+			}
+
+			if (
+				$server->getRequest()->getParams()['_route'] == 'settings.PersonalSettings.index' &&
+				$server->getRequest()->getParams()['section'] == 'privacy'
+			) {
+				$content = array_map('trim', array_filter(explode("\n", $params['content'])));
+
+				$index = array_search('<h4>Administrators</h4>', $content);
+				if ($index) {
+					unset($content[$index]);
+					unset($content[$index + 1]);
+				}
+
+				$index = array_search('<h3>Where is your data?</h3>', $content);
+				if ($index) {
+					unset($content[$index]);
+					unset($content[$index - 1]);
+					unset($content[$index + 1]);
+					unset($content[$index + 2]);
+				}
+				
 				$params['content'] = implode("\n", $content);
 			}
 

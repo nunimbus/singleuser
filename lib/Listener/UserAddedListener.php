@@ -24,23 +24,30 @@ declare(strict_types=1);
 
 namespace OCA\SingleUser\Listener;
 
-use OCP\User\Events\UserDeletedEvent;
+use OCP\Group\Events\UserAddedEvent;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use OC;
 
-class UserDeletedListener implements IEventListener {
+// Use this event to pre-select defaults for new users. When using a SAML backend, UserCreatedEvent doesn't fire, but
+// UserAddedEvent (added to group) does. Add code to enable/disable apps and configure settings here
+class UserAddedListener implements IEventListener {
 	public function handle(Event $event): void {
-		if (!$event instanceof UserDeletedEvent) {
+		if (!$event instanceof UserAddedEvent) {
 				return;
 		}
 
 		$user = $event->getUser();
-		$userUID = $user->getUID();
-		$group = OC::$server->getGroupManager()->get('user-' . $userUID);
+		$userId = $user->getUID();
+		$groupId = $event->getGroup()->getGID();
 
-		if ($group) {
-			$group->delete();
+		if ($groupId == 'user-' . $userId && $user->getLastLogin() == 0) {
+			$appSettingsControllerMiddleware = OC::$server->get('OCA\SingleUser\Middleware\AppSettingsControllerMiddleware');
+			$appSettingsControllerMiddleware->toggleApp(false, $userId, 'logreader');
+			$appSettingsControllerMiddleware->toggleApp(false, $userId, 'serverinfo');
+			$appSettingsControllerMiddleware->toggleApp(false, $userId, 'support');
+			$appSettingsControllerMiddleware->toggleApp(false, $userId, 'survey_client');
+			$appSettingsControllerMiddleware->toggleApp(false, $userId, 'updatenotification');
 		}
 
 		return;
