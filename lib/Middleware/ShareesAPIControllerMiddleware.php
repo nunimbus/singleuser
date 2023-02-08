@@ -102,7 +102,11 @@ class ShareesAPIControllerMiddleware extends MiddlewareConstructor {
 			$params = \OC::$server->getRequest()->getParams();
 
 			// Enforce exact user match
-			$data['ocs']['data']['users'] = array();
+			foreach ($data['ocs']['data'] as $key=>$match) {
+				if ($key != 'exact') {
+					$data['ocs']['data'][$key] = array();
+				}
+			}
 
 			// Force the display name of the user to match the search term used - don't disclose names, emails, or
 			// usernames until the recipient opens the file

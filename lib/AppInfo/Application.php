@@ -29,6 +29,8 @@ use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\AppFramework\Utility\IControllerMethodReflector;
+use OCP\Share;
+
 
 // Needed to register middleware
 use OC_App;
@@ -56,6 +58,7 @@ use OCP\User\Events\UserDeletedEvent;
 //use OCA\SingleUser\Listener\UserCreatedListener;
 use OCA\SingleUser\Listener\UserAddedListener;
 use OCA\SingleUser\Listener\UserDeletedListener;
+use OCA\SingleUser\Listener\ShareListener;
 
 class Application extends App implements IBootstrap {
 
@@ -230,6 +233,12 @@ class Application extends App implements IBootstrap {
 		//$context->registerEventListener(UserCreatedEvent::class, UserCreatedListener::class);
 		$context->registerEventListener(UserAddedEvent::class, UserAddedListener::class);
 		$context->registerEventListener(UserDeletedEvent::class, UserDeletedListener::class);
+
+		\OC::$server->getEventDispatcher()->addListener('OCP\Share::preShare', [ShareListener::class, 'preShare']);
+		\OC::$server->getEventDispatcher()->addListener('OCP\Share::postShare', [ShareListener::class, 'postShare']);
+		\OC::$server->getEventDispatcher()->addListener('OCP\Share::preUnshare', [ShareListener::class, 'preUnshare']);
+		\OC::$server->getEventDispatcher()->addListener('OCP\Share::postUnshare', [ShareListener::class, 'postUnshare']);
+		\OC::$server->getEventDispatcher()->addListener('OCP\Share::postAcceptShare', [ShareListener::class, 'postAcceptShare']);
 	}
 
 	public function boot(IBootContext $context): void {
